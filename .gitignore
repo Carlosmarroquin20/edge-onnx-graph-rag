@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.next/
+out/
+
+# Caches
+.cache/
+*.tsbuildinfo
+
+# Model artifacts (fetched at runtime; never committed)
+models/
+*.onnx
+
+# Environment and logs
+.env*
+!.env.example
+*.log
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

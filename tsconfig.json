@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    /* Language and emit targets for modern, bundler-driven web runtimes. */
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+    "useDefineForClassFields": true,
+
+    /* This config type-checks only; bundlers own emit. */
+    "noEmit": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+
+    /* Strictness: illegal states unrepresentable, no implicit escape hatches. */
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Interop and ergonomics. */
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node", "@webgpu/types"],
+
+    /* Path aliasing for clean intra-project imports. */
+    "baseUrl": ".",
+    "paths": {
+      "@core/*": ["src/core/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", ".next"]
+}
