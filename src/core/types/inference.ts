@@ -40,15 +40,22 @@ export interface GenerationOptions {
   readonly signal?: AbortSignal;
 }
 
-/** A single decoded step emitted by the generation stream. */
+/**
+ * A single decode step emitted by the generation stream.
+ *
+ * A step is a decoded text delta. Byte-level BPE tokenizers buffer partial
+ * code points, so one delta may span several underlying tokens; `tokenId`
+ * therefore carries the most recent originating token id and is absent when no
+ * 1:1 mapping is available for the delta.
+ */
 export interface GenerationToken {
-  /** Decoded text fragment for this step. */
+  /** Decoded text fragment produced at this step. */
   readonly text: string;
-  /** Underlying token id from the tokenizer. */
-  readonly tokenId: number;
-  /** Zero-based index within the generated sequence. */
+  /** Most recent originating token id, when a mapping is available. */
+  readonly tokenId?: number;
+  /** Zero-based index of this delta within the generation stream. */
   readonly index: number;
-  /** True for the terminal token (EOS or `maxNewTokens` reached). */
+  /** True for the terminal step (EOS, cancellation, or `maxNewTokens` reached). */
   readonly isLast: boolean;
 }
 

@@ -13,14 +13,45 @@ out/
 # Model artifacts (fetched at runtime; never committed)
 models/
 *.onnx
+*.onnx_data
+*.gguf
+*.safetensors
+*.bin
 
-# Environment and logs
-.env*
+# Environment and secrets (never commit; client-side code must not embed secrets)
+.env
+.env.*
 !.env.example
+*.local
+secrets/
+.secrets/
+
+# Credentials, keys, certificates, tokens
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+*.keystore
+*.jks
+id_rsa*
+*.token
+*_token
+*.credentials
+.npmrc
+.huggingface/
+auth.json
+gcloud-*.json
+service-account*.json
+
+# Logs
 *.log
+npm-debug.log*
 
 # Editor / OS
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json

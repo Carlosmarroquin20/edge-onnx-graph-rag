@@ -144,23 +144,36 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
 > Update at the end of every session. Newest first.
 
 ### Accomplished
-- Repository scaffolding: `package.json`, strict `tsconfig.json`, `.gitignore`.
+- Repository scaffolding: `package.json`, strict `tsconfig.json`, `.gitignore`
+  (secrets/keys/model-artifact rules), `.env.example`.
 - Planning docs: `CLAUDE.md` (this file), `ROADMAP.md`.
+- Dependencies installed: `onnxruntime-web@1.26`, `@huggingface/transformers@3.8`.
 - Phase 1 foundations:
   - Core type contracts: `InferenceEngine`, `ExecutionMetrics`, `GraphNode`,
     `GraphEdge`, supporting types and discriminated unions.
   - Runtime capability detection (`capabilities.ts`): WebGPU + WASM SIMD/threads
     + cross-origin-isolation probe producing an immutable `CapabilityReport`.
   - `EngineFactory`: data-driven backend negotiation with graceful WASM fallback.
+- Phase 1 implementation:
+  - `streaming.ts`: single-producer/consumer push-to-pull `AsyncIterable` bridge.
+  - `TransformersBackend` (abstract base): pipeline lifecycle, `TextStreamer`
+    token streaming with one-step `isLast` lookahead, `AbortSignal` →
+    `InterruptableStoppingCriteria` cancellation, token accounting, warm-up.
+  - `WebGpuBackend` (device `webgpu`, dtype `q4`) and `WasmBackend`
+    (device `wasm`, dtype `q8`, COI-gated thread-pool sizing).
+  - `createEngine.ts` composition root pre-wiring both backends.
+  - Vitest suite: 16 tests over capability detection + factory negotiation.
+    `npm run typecheck` and `npx vitest run` both green.
 
 ### Pending
-- Phase 1: concrete `WebGpuBackend` / `WasmBackend` wiring to `onnxruntime-web`
-  and Transformers.js; model loading; async token streaming.
-- Phase 1: capability-detection unit tests (Vitest, mocked `navigator.gpu`).
+- Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
+  fallback); the unit suite covers negotiation/factory, not live inference.
 - Phase 2: Knowledge Graph store, entity extraction, multi-hop search.
-- Phase 3: Execution profiler instrumentation and aggregation.
+- Phase 3: Execution profiler instrumentation and aggregation (authoritative
+  token counts/peak memory; `complete()` currently approximates via re-tokenize).
 - Phase 4: Next.js + Tailwind UI and metrics dashboard.
-- Tooling: install dependencies, ESLint config, COI headers for dev server.
+- Tooling: ESLint config (the `lint` script is declared but ESLint is not yet a
+  dependency); COI response headers for the dev server to unlock WASM threads.
 
 ### Conventions Decided
 - ESM-only, no CommonJS. `moduleResolution: "Bundler"`.
