@@ -46,13 +46,20 @@ export interface GraphEdge {
   readonly target: NodeId;
   /** Relation label (e.g. "mentions", "is-a", "part-of"). */
   readonly relation: string;
-  /** Traversal cost / relevance weight. Higher means stronger association. */
+  /**
+   * Association strength in `(0, ∞)`; higher means a stronger relation.
+   * Weighted traversal converts this to a path cost via its reciprocal, so
+   * stronger edges are "closer". Must be positive to participate in pathing.
+   */
   readonly weight: number;
   readonly directed: boolean;
   readonly properties: PropertyBag;
 }
 
-/** Parameters for multi-hop neighborhood retrieval (Phase 2). */
+/** Direction of edge expansion during traversal. */
+export type TraversalDirection = "out" | "in" | "both";
+
+/** Parameters for multi-hop neighborhood retrieval. */
 export interface TraversalQuery {
   readonly start: ReadonlyArray<NodeId>;
   /** Maximum hop distance from any start node. */
@@ -61,6 +68,12 @@ export interface TraversalQuery {
   readonly limit?: number;
   /** Restrict expansion to these relation labels when provided. */
   readonly relations?: ReadonlyArray<string>;
+  /**
+   * Expansion direction. Undirected edges are always bidirectional; for
+   * directed edges, `"both"` treats them as bidirectional for retrieval.
+   * Defaults to `"both"`.
+   */
+  readonly direction?: TraversalDirection;
 }
 
 /** Result of a traversal: the induced subgraph plus per-node relevance. */

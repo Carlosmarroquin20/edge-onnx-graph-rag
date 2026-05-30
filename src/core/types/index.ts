@@ -24,6 +24,7 @@ export type {
   PropertyBag,
   PropertyValue,
   SubgraphResult,
+  TraversalDirection,
   TraversalQuery,
 } from "./graph.js";
 

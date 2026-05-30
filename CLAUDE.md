@@ -164,11 +164,21 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
   - `createEngine.ts` composition root pre-wiring both backends.
   - Vitest suite: 16 tests over capability detection + factory negotiation.
     `npm run typecheck` and `npx vitest run` both green.
+- Phase 2 (graph core):
+  - `GraphStore`: entity maps + dual adjacency indexes (outgoing/incoming),
+    O(1) lookup, O(degree) `expand`, cascading node removal, endpoint integrity.
+  - `traversal.ts`: `retrieveNeighborhood` (k-hop BFS, proximity-scored, bounded)
+    and `weightedShortestPath` (Dijkstra over reciprocal weights, binary min-heap).
+  - `ids.ts` (`asNodeId`/`asEdgeId`, `IdFactory`), `GraphError` discriminated codes.
+  - `TraversalDirection` + `direction`/weight semantics added to graph contracts.
+  - Vitest suite now 34 tests total; typecheck + `vitest run` green.
 
 ### Pending
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
   fallback); the unit suite covers negotiation/factory, not live inference.
-- Phase 2: Knowledge Graph store, entity extraction, multi-hop search.
+- Phase 2: entity extraction (text/model output → nodes/edges) and the context
+  assembler (rank + pack `SubgraphResult` into the prompt budget); optional
+  embedding-based hybrid ranking over `GraphNode.embedding`.
 - Phase 3: Execution profiler instrumentation and aggregation (authoritative
   token counts/peak memory; `complete()` currently approximates via re-tokenize).
 - Phase 4: Next.js + Tailwind UI and metrics dashboard.
