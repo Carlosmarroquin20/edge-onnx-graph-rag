@@ -171,14 +171,20 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     and `weightedShortestPath` (Dijkstra over reciprocal weights, binary min-heap).
   - `ids.ts` (`asNodeId`/`asEdgeId`, `IdFactory`), `GraphError` discriminated codes.
   - `TraversalDirection` + `direction`/weight semantics added to graph contracts.
-  - Vitest suite now 34 tests total; typecheck + `vitest run` green.
+  - `contextAssembler.ts`: ranks/packs a `SubgraphResult` into a token-bounded
+    block via an injectable `TokenEstimator` (char-heuristic default; the model's
+    encoder can be supplied for exact budgeting). Score-ordered greedy admission;
+    relations included only between admitted nodes; hard budget guarantee.
+  - Vitest suite now 41 tests total; typecheck + `vitest run` green.
 
 ### Pending
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
   fallback); the unit suite covers negotiation/factory, not live inference.
-- Phase 2: entity extraction (text/model output → nodes/edges) and the context
-  assembler (rank + pack `SubgraphResult` into the prompt budget); optional
-  embedding-based hybrid ranking over `GraphNode.embedding`.
+- Phase 2: entity extraction (text/model output → nodes/edges) — the last piece
+  before an end-to-end Graph-RAG path; optional embedding-based hybrid ranking
+  over `GraphNode.embedding`.
+- Integration: a `GraphRagPipeline` wiring extraction → retrieval → assembly →
+  engine (prepend assembled context to the prompt).
 - Phase 3: Execution profiler instrumentation and aggregation (authoritative
   token counts/peak memory; `complete()` currently approximates via re-tokenize).
 - Phase 4: Next.js + Tailwind UI and metrics dashboard.

@@ -9,9 +9,9 @@ Implemented:
   weighted shortest path (Dijkstra over reciprocal edge weights).
 - `ids` — branded-id helpers (`asNodeId`/`asEdgeId`) and a monotonic `IdFactory`.
 - `errors` — `GraphError` with a `code` discriminant.
+- `contextAssembler` — ranks and packs a `SubgraphResult` into a token-bounded
+  text block via an injectable `TokenEstimator` (char-heuristic default).
 
 Pending:
 - `entityExtraction` — parse source text / model output into typed nodes/edges.
-- `contextAssembler` — rank and pack a retrieved subgraph into the prompt budget
-  (consumes `SubgraphResult` from traversal; couples to the inference engine).
 - Optional embedding-based hybrid ranking over `GraphNode.embedding`.

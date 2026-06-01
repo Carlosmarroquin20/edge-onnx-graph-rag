@@ -9,6 +9,14 @@ export {
   type ShortestPathOptions,
 } from "./traversal.js";
 
+export {
+  assembleContext,
+  estimateTokensByChars,
+  type AssembledContext,
+  type ContextAssemblyOptions,
+  type TokenEstimator,
+} from "./contextAssembler.js";
+
 export { asEdgeId, asNodeId, IdFactory } from "./ids.js";
 
 export { GraphError, type GraphErrorCode } from "./errors.js";
