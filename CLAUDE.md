@@ -183,15 +183,25 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     minting, label de-duplication (normalized key), and edge-weight accumulation
     (orientation-folded signature for undirected relations).
   - Vitest suite now 55 tests total; typecheck + `vitest run` green.
+- Integration (`src/core/pipeline/`):
+  - `GraphRagPipeline`: composes seed resolution → k-hop retrieval → context
+    assembly → prompt augmentation → engine generation. Depends only on the
+    `InferenceEngine` contract (testable with a stub; no model load). `prepare()`
+    is the engine-pure retrieval side; `run()` returns answer + metrics;
+    `stream()` exposes the answer as a token stream. Injectable `SeedResolver`
+    and `PromptTemplate`; defaults `resolveSeedsByLabel` (proper-noun → node
+    label match) and `defaultPromptTemplate` (graceful context-free degradation).
+  - Vitest suite now 61 tests total; typecheck + `vitest run` green.
 
 ### Pending
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
-  fallback); the unit suite covers negotiation/factory, not live inference.
-- Integration: a `GraphRagPipeline` wiring extraction → retrieval → assembly →
-  engine (prepend assembled context to the prompt). All four stages now exist as
-  units; this composes them.
-- Phase 2 (optional): embedding-based hybrid ranking over `GraphNode.embedding`.
-- Phase 3: Execution profiler instrumentation and aggregation.
+  fallback); the unit suite covers negotiation/factory, not live inference. This
+  is the one path not yet exercised — everything upstream composes against the
+  `InferenceEngine` contract via stubs.
+- Phase 2 (optional): embedding-based hybrid ranking over `GraphNode.embedding`;
+  semantic seed resolution to complement label matching in `resolveSeedsByLabel`.
+- Phase 3: Execution profiler instrumentation and aggregation (authoritative
+  token counts/peak memory; `complete()` currently approximates via re-tokenize).
 - Phase 4: Next.js + Tailwind UI and metrics dashboard.
 - Phase 3: Execution profiler instrumentation and aggregation (authoritative
   token counts/peak memory; `complete()` currently approximates via re-tokenize).
