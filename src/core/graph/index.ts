@@ -19,4 +19,18 @@ export {
 
 export { asEdgeId, asNodeId, IdFactory } from "./ids.js";
 
+export {
+  extractByCooccurrence,
+  extractTriples,
+  normalizeLabel,
+  type CooccurrenceExtractionOptions,
+  type EntityExtractor,
+  type ExtractedEdge,
+  type ExtractedNode,
+  type ExtractionResult,
+  type TripleExtractionOptions,
+} from "./extraction.js";
+
+export { GraphBuilder, type GraphBuilderOptions } from "./GraphBuilder.js";
+
 export { GraphError, type GraphErrorCode } from "./errors.js";

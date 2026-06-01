@@ -11,7 +11,12 @@ Implemented:
 - `errors` — `GraphError` with a `code` discriminant.
 - `contextAssembler` — ranks and packs a `SubgraphResult` into a token-bounded
   text block via an injectable `TokenEstimator` (char-heuristic default).
+- `extraction` — dependency-free entity extraction: `extractTriples`
+  (model-output `subject | predicate | object` lines) and `extractByCooccurrence`
+  (proper-noun + sentence co-occurrence over free text).
+- `GraphBuilder` — ingests extraction fragments into a `GraphStore`, owning id
+  minting, label de-duplication, and edge-weight accumulation.
 
 Pending:
-- `entityExtraction` — parse source text / model output into typed nodes/edges.
 - Optional embedding-based hybrid ranking over `GraphNode.embedding`.
+- `GraphRagPipeline` integration: extraction → retrieval → assembly → engine.

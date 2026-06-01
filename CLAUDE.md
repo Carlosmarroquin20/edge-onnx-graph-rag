@@ -175,16 +175,24 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     block via an injectable `TokenEstimator` (char-heuristic default; the model's
     encoder can be supplied for exact budgeting). Score-ordered greedy admission;
     relations included only between admitted nodes; hard budget guarantee.
-  - Vitest suite now 41 tests total; typecheck + `vitest run` green.
+  - `extraction.ts`: dependency-free entity extraction — `extractTriples`
+    (model-output `subject | predicate | object` lines → directed edges) and
+    `extractByCooccurrence` (Unicode proper-noun detection + sentence
+    co-occurrence → undirected edges, stopword-filtered).
+  - `GraphBuilder.ts`: ingests `ExtractionResult` into a `GraphStore`; owns id
+    minting, label de-duplication (normalized key), and edge-weight accumulation
+    (orientation-folded signature for undirected relations).
+  - Vitest suite now 55 tests total; typecheck + `vitest run` green.
 
 ### Pending
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
   fallback); the unit suite covers negotiation/factory, not live inference.
-- Phase 2: entity extraction (text/model output → nodes/edges) — the last piece
-  before an end-to-end Graph-RAG path; optional embedding-based hybrid ranking
-  over `GraphNode.embedding`.
 - Integration: a `GraphRagPipeline` wiring extraction → retrieval → assembly →
-  engine (prepend assembled context to the prompt).
+  engine (prepend assembled context to the prompt). All four stages now exist as
+  units; this composes them.
+- Phase 2 (optional): embedding-based hybrid ranking over `GraphNode.embedding`.
+- Phase 3: Execution profiler instrumentation and aggregation.
+- Phase 4: Next.js + Tailwind UI and metrics dashboard.
 - Phase 3: Execution profiler instrumentation and aggregation (authoritative
   token counts/peak memory; `complete()` currently approximates via re-tokenize).
 - Phase 4: Next.js + Tailwind UI and metrics dashboard.
