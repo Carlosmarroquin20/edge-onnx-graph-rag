@@ -192,20 +192,29 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     and `PromptTemplate`; defaults `resolveSeedsByLabel` (proper-noun → node
     label match) and `defaultPromptTemplate` (graceful context-free degradation).
   - Vitest suite now 61 tests total; typecheck + `vitest run` green.
+- Phase 3 (execution profiler, `src/core/profiler/`):
+  - `profileGeneration`: pass-through stream instrument resolving an
+    `ExecutionMetrics` (TTFT, wall-clock, decode throughput, emitted-step count,
+    exact prompt-token count, peak memory). Injectable clocks + memory sampler.
+  - `sampleUserAgentMemory`: COI-gated `measureUserAgentSpecificMemory` probe.
+  - `MetricsAggregator`: per-`(backend, modelId)` aggregation — run count,
+    nearest-rank p50/p95 TTFT, mean throughput, peak memory.
+  - `TransformersBackend.complete` now derives metrics from `profileGeneration`
+    over its own stream (measured timing/counts; re-tokenize approximation gone;
+    prompt count still exact).
+  - Vitest suite now 70 tests total; typecheck + `vitest run` green.
 
 ### Pending
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
   fallback); the unit suite covers negotiation/factory, not live inference. This
   is the one path not yet exercised — everything upstream composes against the
   `InferenceEngine` contract via stubs.
-- Phase 2 (optional): embedding-based hybrid ranking over `GraphNode.embedding`;
-  semantic seed resolution to complement label matching in `resolveSeedsByLabel`.
-- Phase 3: Execution profiler instrumentation and aggregation (authoritative
-  token counts/peak memory; `complete()` currently approximates via re-tokenize).
-- Phase 4: Next.js + Tailwind UI and metrics dashboard.
-- Phase 3: Execution profiler instrumentation and aggregation (authoritative
-  token counts/peak memory; `complete()` currently approximates via re-tokenize).
-- Phase 4: Next.js + Tailwind UI and metrics dashboard.
+- Phase 4: Next.js + Tailwind UI — streamed generation, live metrics dashboard
+  (consumes `MetricsAggregator`), graph visualization; COI headers for WASM
+  threads; worker-offloaded inference.
+- Optional: embedding-based hybrid ranking over `GraphNode.embedding`; semantic
+  seed resolution to complement label matching in `resolveSeedsByLabel`;
+  per-token emission for exact (vs. decode-step) generated-token counts.
 - Tooling: ESLint config (the `lint` script is declared but ESLint is not yet a
   dependency); COI response headers for the dev server to unlock WASM threads.
 

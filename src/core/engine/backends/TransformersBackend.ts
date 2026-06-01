@@ -34,9 +34,9 @@ import type {
   InferenceEngine,
 } from "../../types/inference.js";
 import type { CapabilityReport } from "../../types/inference.js";
-import type { ExecutionMetrics } from "../../types/metrics.js";
 import { EngineError } from "../../types/errors.js";
 import { createPushPullStream } from "../streaming.js";
+import { profileGeneration } from "../../profiler/profileGeneration.js";
 
 const DEFAULT_MAX_NEW_TOKENS = 256;
 
@@ -205,41 +205,20 @@ export abstract class TransformersBackend implements InferenceEngine {
     options: GenerationOptions = {},
   ): Promise<GenerationResult> {
     const pipe = this.requirePipe();
-    const startedAt = Date.now();
-    const dispatchedAt = performance.now();
+    // Prompt token count is exact (encoded here); generation timing and the
+    // emitted-step count come from the profiler instrumenting our own stream.
+    const run = profileGeneration(this.generate(prompt, options), {
+      backend: this.backend,
+      modelId: this.config.modelId,
+      promptTokenCount: pipe.tokenizer.encode(prompt).length,
+    });
 
-    let timeToFirstTokenMs = 0;
-    let isFirst = true;
     let text = "";
-
-    for await (const token of this.generate(prompt, options)) {
-      if (isFirst) {
-        timeToFirstTokenMs = performance.now() - dispatchedAt;
-        isFirst = false;
-      }
+    for await (const token of run.tokens) {
       text += token.text;
     }
 
-    const wallClockMs = performance.now() - dispatchedAt;
-    const promptTokenCount = pipe.tokenizer.encode(prompt).length;
-    const generatedTokenCount = text.length === 0 ? 0 : pipe.tokenizer.encode(text).length;
-    // Throughput over the decode phase only; excludes prefill captured by TTFT.
-    const decodeSeconds = Math.max(wallClockMs - timeToFirstTokenMs, Number.EPSILON) / 1000;
-    const tokensPerSecond = generatedTokenCount / decodeSeconds;
-
-    const metrics: ExecutionMetrics = {
-      backend: this.backend,
-      modelId: this.config.modelId,
-      timeToFirstTokenMs,
-      wallClockMs,
-      tokensPerSecond,
-      promptTokenCount,
-      generatedTokenCount,
-      peakMemoryBytes: undefined,
-      startedAt,
-    };
-
-    return { text, metrics };
+    return { text, metrics: await run.metrics };
   }
 
   async dispose(): Promise<void> {
