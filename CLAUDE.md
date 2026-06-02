@@ -203,20 +203,40 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     over its own stream (measured timing/counts; re-tokenize approximation gone;
     prompt count still exact).
   - Vitest suite now 70 tests total; typecheck + `vitest run` green.
+- Phase 4 (Next.js + Tailwind UI):
+  - App Router scaffold: `app/layout.tsx`, `app/page.tsx`, `app/globals.css`;
+    Tailwind + PostCSS; `next.config.mjs`; tsconfig extended for JSX (`preserve`,
+    `allowJs`, include `app`/`components`/`lib`).
+  - `next.config.mjs`: COI headers (COOP `same-origin` + COEP `credentialless`);
+    webpack `extensionAlias` so the core's `.js` specifiers resolve to `.ts`;
+    `onnxruntime-node`/`sharp` aliased to `false` (browser uses onnxruntime-web);
+    node-core fallbacks off.
+  - `lib/graphRagClient.ts` (`GraphRagSession`): builds the graph from text, lazily
+    + dynamically imports the engine (no transformers eval during SSR), streams a
+    turn, instruments it via `profileGeneration`, aggregates metrics.
+  - `lib/useGraphRag.ts`: React hook projecting the session into render state
+    (phase, status, streamed answer, outcome, aggregates); `AbortController` cancel.
+  - `components/`: `GraphRagConsole` (client), `MetricsPanel`, `SubgraphPanel`.
+  - Verified here: full-repo `tsc --noEmit` clean; 70 core tests still green;
+    `next dev` compiles (567 modules) and SSR-renders the page (HTTP 200).
 
 ### Pending
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
   fallback); the unit suite covers negotiation/factory, not live inference. This
   is the one path not yet exercised — everything upstream composes against the
   `InferenceEngine` contract via stubs.
-- Phase 4: Next.js + Tailwind UI — streamed generation, live metrics dashboard
-  (consumes `MetricsAggregator`), graph visualization; COI headers for WASM
-  threads; worker-offloaded inference.
+- Phase 4 prod build: `next build` fails in Terser minification of
+  `onnxruntime-web`'s `ort.bundle.min.mjs` worker (`'import.meta' cannot be used
+  outside of module code`) — known ORT-web/webpack interaction; `next dev` is
+  unaffected (no Terser). Needs a minifier/worker-handling workaround verified in
+  a browser.
+- Phase 4 enhancements: worker-offloaded inference (keep main thread free) and
+  graph visualization of the retrieved subgraph.
 - Optional: embedding-based hybrid ranking over `GraphNode.embedding`; semantic
   seed resolution to complement label matching in `resolveSeedsByLabel`;
   per-token emission for exact (vs. decode-step) generated-token counts.
 - Tooling: ESLint config (the `lint` script is declared but ESLint is not yet a
-  dependency); COI response headers for the dev server to unlock WASM threads.
+  dependency).
 
 ### Conventions Decided
 - ESM-only, no CommonJS. `moduleResolution: "Bundler"`.

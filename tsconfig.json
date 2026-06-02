@@ -8,8 +8,14 @@
     "moduleDetection": "force",
     "useDefineForClassFields": true,
 
+    /* React (Next.js App Router) uses the automatic JSX runtime. */
+    "jsx": "preserve",
+    "plugins": [{ "name": "next" }],
+    "incremental": true,
+
     /* This config type-checks only; bundlers own emit. */
     "noEmit": true,
+    "allowJs": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
@@ -37,6 +43,13 @@
       "@core/*": ["src/core/*"]
     }
   },
-  "include": ["src"],
+  "include": [
+    "src",
+    "app",
+    "components",
+    "lib",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
+  ],
   "exclude": ["node_modules", "dist", ".next"]
 }
