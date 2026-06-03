@@ -8,7 +8,7 @@
  * and cross-run aggregates. Generation is cancellable via an `AbortController`.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   GraphRagSession,
@@ -59,6 +59,14 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
     }
     return sessionRef.current;
   }, [modelId]);
+
+  // Terminate the inference worker (freeing model/GPU/WASM memory) on unmount.
+  useEffect(() => {
+    return () => {
+      void sessionRef.current?.disposeEngine();
+      sessionRef.current = null;
+    };
+  }, []);
 
   const buildGraph = useCallback(
     (source: string, mode: CorpusMode): void => {

@@ -54,6 +54,7 @@ export class GraphRagSession {
   private store = new GraphStore();
   private readonly aggregator = new MetricsAggregator();
   private enginePromise: Promise<InferenceEngine> | null = null;
+  private busy = false;
 
   constructor(
     private modelId: string,
@@ -84,57 +85,90 @@ export class GraphRagSession {
   /**
    * Spins up the inference worker, which loads the Transformers.js runtime,
    * negotiates a backend, and warms the model off the main thread. Subsequent
-   * calls reuse the same worker.
+   * calls reuse the same worker. A failed load is not cached, so the next call
+   * retries from a clean slate.
    */
   async ensureEngine(onStatus?: (status: string) => void): Promise<InferenceEngine> {
     if (this.enginePromise === null) {
-      this.enginePromise = (async () => {
-        onStatus?.("Loading model in a worker…");
-        const engine = new WorkerEngineClient({
-          modelId: this.modelId,
-          dtype: this.dtype,
-        });
-        await engine.init();
-        onStatus?.(`Ready on ${engine.backend.toUpperCase()}.`);
-        return engine;
-      })();
+      this.enginePromise = this.createEngine(onStatus);
     }
     return this.enginePromise;
+  }
+
+  private async createEngine(
+    onStatus?: (status: string) => void,
+  ): Promise<InferenceEngine> {
+    onStatus?.("Loading model in a worker…");
+    const engine = new WorkerEngineClient({
+      modelId: this.modelId,
+      dtype: this.dtype,
+    });
+    try {
+      await engine.init();
+    } catch (error) {
+      // Tear down the worker and clear the cached promise so a retry is possible.
+      await engine.dispose();
+      this.enginePromise = null;
+      throw error;
+    }
+    onStatus?.(`Ready on ${engine.backend.toUpperCase()}.`);
+    return engine;
+  }
+
+  /** True while a generation turn is in flight. */
+  get isGenerating(): boolean {
+    return this.busy;
   }
 
   /**
    * Runs one Graph-RAG turn: retrieve, assemble, stream generation, and record
    * profiler metrics. Prompt token count is estimated (the streaming path does
    * not re-encode); all timing and throughput figures are measured.
+   *
+   * The underlying pipeline is not reentrant, so overlapping turns are rejected
+   * rather than allowed to corrupt each other.
    */
   async ask(query: string, handlers: AskHandlers): Promise<AskOutcome> {
-    const engine = await this.ensureEngine(handlers.onStatus);
-    const pipeline = new GraphRagPipeline(engine, this.store);
-
-    const baseOptions = handlers.options ?? {};
-    const runOptions: GraphRagOptions = {
-      ...baseOptions,
-      generation: { ...baseOptions.generation, ...(handlers.signal ? { signal: handlers.signal } : {}) },
-    };
-
-    const { prompt, context, seeds, tokens } = pipeline.stream(query, runOptions);
-
-    const run = profileGeneration(tokens, {
-      backend: engine.backend,
-      modelId: this.modelId,
-      promptTokenCount: estimateTokensByChars(prompt),
-    });
-
-    let answer = "";
-    for await (const token of run.tokens) {
-      answer += token.text;
-      handlers.onToken(token.text);
+    if (this.busy) {
+      throw new Error(
+        "A generation is already in progress; cancel it or wait for it to finish.",
+      );
     }
+    this.busy = true;
+    try {
+      const engine = await this.ensureEngine(handlers.onStatus);
+      const pipeline = new GraphRagPipeline(engine, this.store);
 
-    const metrics = await run.metrics;
-    this.aggregator.add(metrics);
+      const baseOptions = handlers.options ?? {};
+      const runOptions: GraphRagOptions = {
+        ...baseOptions,
+        generation: {
+          ...baseOptions.generation,
+          ...(handlers.signal ? { signal: handlers.signal } : {}),
+        },
+      };
 
-    return { answer, context, seedLabels: this.labelsFor(seeds), metrics };
+      const { prompt, context, seeds, tokens } = pipeline.stream(query, runOptions);
+
+      const run = profileGeneration(tokens, {
+        backend: engine.backend,
+        modelId: this.modelId,
+        promptTokenCount: estimateTokensByChars(prompt),
+      });
+
+      let answer = "";
+      for await (const token of run.tokens) {
+        answer += token.text;
+        handlers.onToken(token.text);
+      }
+
+      const metrics = await run.metrics;
+      this.aggregator.add(metrics);
+
+      return { answer, context, seedLabels: this.labelsFor(seeds), metrics };
+    } finally {
+      this.busy = false;
+    }
   }
 
   aggregates(): AggregatedMetrics[] {

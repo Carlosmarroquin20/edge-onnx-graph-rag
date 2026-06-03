@@ -239,6 +239,13 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     bundle no longer pulls Transformers.js (it lives only in the worker chunk).
   - Verified: `tsc` clean; 70 tests green; `next build` succeeds; `next dev`
     compiles (600 modules) and renders (HTTP 200).
+- Phase 4 — A2/A3, engine/worker lifecycle hardening (`lib/`):
+  - A2: `GraphRagSession.ask` rejects overlapping turns (the pipeline is not
+    reentrant); exposes `isGenerating`.
+  - A3: `useGraphRag` terminates the worker on unmount (frees model/GPU/WASM);
+    `ensureEngine` no longer caches a failed load (clears the promise and tears
+    down the worker so the next attempt retries cleanly).
+  - Verified: `tsc` clean; 70 tests green; `next build` succeeds.
 
 ### Pending
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
