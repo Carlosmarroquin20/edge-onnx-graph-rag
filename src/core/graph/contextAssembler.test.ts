@@ -120,6 +120,17 @@ describe("assembleContext", () => {
     expect(result.text).toContain("- Alice [entity] {active=true, age=30, role=lead}");
   });
 
+  it("retains the header but admits nothing when the header alone exceeds budget", () => {
+    const result = assembleContext(subgraph(SCORES), {
+      tokenBudget: 1,
+      header: "A header that is far larger than the budget allows",
+    });
+
+    expect(result.text).toBe("A header that is far larger than the budget allows");
+    expect(result.includedNodes).toEqual([]);
+    expect(result.truncated).toBe(true);
+  });
+
   it("honors a custom token estimator", () => {
     const wordCount: TokenEstimator = (input) =>
       input.split(/\s+/).filter((token) => token.length > 0).length;

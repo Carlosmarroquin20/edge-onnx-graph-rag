@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { GraphRagPipeline, type SeedResolver } from "./GraphRagPipeline.js";
+import {
+  GraphRagPipeline,
+  buildLabelIndex,
+  resolveSeedsByLabel,
+  resolveSeedsFromIndex,
+  type SeedResolver,
+} from "./GraphRagPipeline.js";
 import { GraphBuilder } from "../graph/GraphBuilder.js";
 import { GraphStore } from "../graph/GraphStore.js";
 import { asNodeId } from "../graph/ids.js";
@@ -148,5 +154,32 @@ describe("GraphRagPipeline.stream", () => {
 
     expect(assembled).toBe("Alice knows Bob");
     expect(stream.prompt).toContain("Question: What does Alice know?");
+  });
+});
+
+describe("label index seed resolution", () => {
+  it("indexes nodes by normalized label", () => {
+    const index = buildLabelIndex(buildGraph());
+
+    expect(new Set(index.keys())).toEqual(new Set(["alice", "bob", "acme"]));
+  });
+
+  it("resolves seeds from a precomputed index", () => {
+    const index = buildLabelIndex(buildGraph());
+
+    expect(resolveSeedsFromIndex(index, "What does Alice know?").map(String)).toEqual(
+      ["g:n:1"],
+    );
+    expect(resolveSeedsFromIndex(index, "nothing relevant here")).toEqual([]);
+  });
+
+  it("matches the rebuild-every-call default resolver", () => {
+    const store = buildGraph();
+    const query = "What did Bob and Alice do?";
+
+    const cached = resolveSeedsFromIndex(buildLabelIndex(store), query);
+    const fresh = resolveSeedsByLabel(store, query);
+
+    expect(cached).toEqual(fresh);
   });
 });

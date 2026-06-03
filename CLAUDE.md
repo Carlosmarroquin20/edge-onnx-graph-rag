@@ -256,6 +256,17 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     disables Ask on an invalid id; `useGraphRag.setModel` surfaces the reason.
   - Verified: `tsc` clean; 80 tests green (70 core + 10 validator); `next build`
     succeeds.
+- Test hardening (R2): direct coverage for `createPushPullStream` (buffer/park
+  ordering, FIFO, close, fail/drain, post-close ignore, consumer `return`) — the
+  push-to-pull bridge underlying both `TransformersBackend` and
+  `WorkerEngineClient` streaming — plus a `contextAssembler` header-overflow edge.
+  Suite now 90 tests; `tsc` + `vitest run` green.
+- Perf (P1): seed resolution no longer rebuilds the label index per query.
+  `GraphRagPipeline` now exposes `buildLabelIndex` + `resolveSeedsFromIndex`
+  (the default `resolveSeedsByLabel` composes them); `GraphRagSession` builds the
+  index once in `buildGraph` and injects an index-backed `resolveSeeds` into the
+  pipeline, so repeated queries over a stable graph are O(mentions), not O(nodes).
+  Suite now 93 tests; `tsc` + `vitest run` + `next build` green.
 
 ### Pending
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM

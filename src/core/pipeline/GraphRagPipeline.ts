@@ -86,17 +86,27 @@ export interface GraphRagStream extends PreparedQuery {
 }
 
 /**
- * Default seed resolver: extracts proper-noun mentions from the query and maps
- * them to nodes whose label matches (by normalized key). Unmatched mentions are
- * ignored; a query with no graph-resident entities yields no seeds, degrading
- * gracefully to context-free generation.
+ * Builds a normalized-label → node-id index over the store. O(n) in node count;
+ * intended to be computed once per graph and reused across queries (the store
+ * does not index by label, since labels are not guaranteed unique there).
  */
-export const resolveSeedsByLabel: SeedResolver = (store, query) => {
+export function buildLabelIndex(store: GraphStore): Map<string, NodeId> {
   const index = new Map<string, NodeId>();
   for (const node of store.nodes()) {
     index.set(normalizeLabel(node.label), node.id);
   }
+  return index;
+}
 
+/**
+ * Resolves seeds against a precomputed label index: extracts proper-noun
+ * mentions from the query and maps each to a node by normalized label. Unmatched
+ * mentions are ignored.
+ */
+export function resolveSeedsFromIndex(
+  index: ReadonlyMap<string, NodeId>,
+  query: string,
+): ReadonlyArray<NodeId> {
   const seeds: NodeId[] = [];
   const seen = new Set<NodeId>();
   for (const mention of extractByCooccurrence(query).nodes) {
@@ -107,7 +117,17 @@ export const resolveSeedsByLabel: SeedResolver = (store, query) => {
     }
   }
   return seeds;
-};
+}
+
+/**
+ * Default seed resolver: rebuilds the label index on every call. Convenient for
+ * one-off use; for repeated queries over a stable graph, build the index once
+ * with {@link buildLabelIndex} and resolve with {@link resolveSeedsFromIndex}.
+ * A query with no graph-resident entities yields no seeds, degrading gracefully
+ * to context-free generation.
+ */
+export const resolveSeedsByLabel: SeedResolver = (store, query) =>
+  resolveSeedsFromIndex(buildLabelIndex(store), query);
 
 /** Default prompt template; emits the query alone when no context was retrieved. */
 export const defaultPromptTemplate: PromptTemplate = (context, query) => {

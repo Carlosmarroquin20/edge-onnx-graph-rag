@@ -16,7 +16,12 @@ import {
   extractTriples,
 } from "@core/graph";
 import type { AssembledContext } from "@core/graph";
-import { GraphRagPipeline, type GraphRagOptions } from "@core/pipeline";
+import {
+  GraphRagPipeline,
+  buildLabelIndex,
+  resolveSeedsFromIndex,
+  type GraphRagOptions,
+} from "@core/pipeline";
 import { MetricsAggregator, profileGeneration } from "@core/profiler";
 import type {
   AggregatedMetrics,
@@ -53,6 +58,8 @@ export interface AskOutcome {
 
 export class GraphRagSession {
   private store = new GraphStore();
+  /** Label→id index over `store`, rebuilt only when the graph changes. */
+  private labelIndex: ReadonlyMap<string, NodeId> = new Map();
   private readonly aggregator = new MetricsAggregator();
   private enginePromise: Promise<InferenceEngine> | null = null;
   private busy = false;
@@ -69,6 +76,8 @@ export class GraphRagSession {
     const builder = new GraphBuilder();
     builder.ingest(mode === "triples" ? extractTriples(source) : extractByCooccurrence(source));
     this.store = builder.graph;
+    // Index built once here; reused across every subsequent query.
+    this.labelIndex = buildLabelIndex(this.store);
     return { nodeCount: this.store.nodeCount, edgeCount: this.store.edgeCount };
   }
 
@@ -144,7 +153,10 @@ export class GraphRagSession {
     this.busy = true;
     try {
       const engine = await this.ensureEngine(handlers.onStatus);
-      const pipeline = new GraphRagPipeline(engine, this.store);
+      const pipeline = new GraphRagPipeline(engine, this.store, {
+        // Reuse the cached index instead of rebuilding it per query.
+        resolveSeeds: (_store, text) => resolveSeedsFromIndex(this.labelIndex, text),
+      });
 
       const baseOptions = handlers.options ?? {};
       const runOptions: GraphRagOptions = {

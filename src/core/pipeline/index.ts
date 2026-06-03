@@ -2,8 +2,10 @@
 
 export {
   GraphRagPipeline,
+  buildLabelIndex,
   defaultPromptTemplate,
   resolveSeedsByLabel,
+  resolveSeedsFromIndex,
   type GraphRagOptions,
   type GraphRagPipelineOptions,
   type GraphRagResult,
