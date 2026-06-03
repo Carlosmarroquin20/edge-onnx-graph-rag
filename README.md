@@ -28,6 +28,11 @@ text / model output ─► extraction ─► GraphBuilder ─► GraphStore
 - **Profiler** (`src/core/profiler`) — TTFT / throughput / memory instrumentation
   and cross-run aggregation.
 - **UI** (`app`, `components`, `lib`) — Next.js App Router + Tailwind console.
+  Inference runs in a **Web Worker** (`lib/inference.worker.ts`): the engine,
+  model load, and token decoding stay off the main thread; the main thread only
+  builds the prompt (retrieval + assembly) and renders streamed tokens. The
+  worker is fronted by `WorkerEngineClient`, which implements `InferenceEngine`
+  so the pipeline is agnostic to the thread boundary.
 
 ## Commands
 

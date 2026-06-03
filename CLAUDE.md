@@ -220,9 +220,25 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     (phase, status, streamed answer, outcome, aggregates); `AbortController` cancel.
   - `components/`: `GraphRagConsole` (client), `MetricsPanel`, `SubgraphPanel`.
   - Verified here: full-repo `tsc --noEmit` clean; 70 core tests still green;
-    `next dev` compiles (567 modules) and SSR-renders the page (HTTP 200);
-    `next build` succeeds (route `/` ~7.4 kB, ~95 kB First Load JS — the
+    `next dev` compiles and SSR-renders the page (HTTP 200);
+    `next build` succeeds (route `/` ~8 kB, ~95 kB First Load JS — the
     ONNX/Transformers runtime is in a lazily-loaded chunk, not first load).
+- Phase 4 — A1, worker-offloaded inference (`lib/`):
+  - `inference.worker.ts`: a module worker that owns the `InferenceEngine` (via
+    `createInferenceEngine`); capability negotiation + model load + decoding run
+    off the main thread. The heavy runtime bundles into the worker chunk alone.
+  - `workerProtocol.ts`: typed request/response message unions (init/generate/
+    cancel/dispose ↔ ready/token/done/error). Only cloneable data crosses;
+    cancellation is a `cancel` message keyed by `requestId` (no `AbortSignal`).
+  - `workerEngineClient.ts` (`WorkerEngineClient implements InferenceEngine`):
+    main-thread proxy reconstructing token streams via `createPushPullStream`
+    and relaying `AbortSignal` → `cancel`. Drop-in for `GraphRagPipeline`, which
+    is unchanged — retrieval/assembly stay on the main thread, only generation
+    crosses to the worker.
+  - `GraphRagSession.ensureEngine` now spins up a `WorkerEngineClient`; the main
+    bundle no longer pulls Transformers.js (it lives only in the worker chunk).
+  - Verified: `tsc` clean; 70 tests green; `next build` succeeds; `next dev`
+    compiles (600 modules) and renders (HTTP 200).
 
 ### Pending
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
@@ -230,8 +246,8 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
   is the one path not yet exercised — everything upstream composes against the
   `InferenceEngine` contract via stubs. `tsc`/tests/dev/build all pass, but no
   model has been run in-page.
-- Phase 4 enhancements: worker-offloaded inference (keep main thread free) and
-  graph visualization of the retrieved subgraph.
+- Phase 4 enhancements: graph visualization of the retrieved subgraph (worker-
+  offloaded inference is now done — see A1 above).
 - Optional: embedding-based hybrid ranking over `GraphNode.embedding`; semantic
   seed resolution to complement label matching in `resolveSeedsByLabel`;
   per-token emission for exact (vs. decode-step) generated-token counts.

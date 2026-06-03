@@ -3,8 +3,9 @@
  *
  * Owns the browser-resident state the React layer drives: the constructed
  * knowledge graph, a lazily-initialized inference engine, and a cross-run
- * metrics aggregator. The engine (and its Transformers.js runtime) is imported
- * dynamically so it is never evaluated during server rendering.
+ * metrics aggregator. Inference runs in a Web Worker (see `WorkerEngineClient`),
+ * so the Transformers.js runtime is never evaluated on the main thread or during
+ * server rendering; retrieval and context assembly stay on the main thread.
  */
 
 import {
@@ -23,6 +24,7 @@ import type {
   InferenceEngine,
   NodeId,
 } from "@core/types";
+import { WorkerEngineClient } from "./workerEngineClient.js";
 import type { CorpusMode } from "./sampleData.js";
 
 export interface GraphStats {
@@ -80,19 +82,18 @@ export class GraphRagSession {
   }
 
   /**
-   * Lazily loads the Transformers.js runtime, negotiates a backend, and warms
-   * the model. Subsequent calls reuse the same engine.
+   * Spins up the inference worker, which loads the Transformers.js runtime,
+   * negotiates a backend, and warms the model off the main thread. Subsequent
+   * calls reuse the same worker.
    */
   async ensureEngine(onStatus?: (status: string) => void): Promise<InferenceEngine> {
     if (this.enginePromise === null) {
       this.enginePromise = (async () => {
-        onStatus?.("Loading inference runtime…");
-        const { createInferenceEngine } = await import("@core/engine/createEngine");
-        const engine = await createInferenceEngine({
+        onStatus?.("Loading model in a worker…");
+        const engine = new WorkerEngineClient({
           modelId: this.modelId,
           dtype: this.dtype,
         });
-        onStatus?.(`Initializing model on ${engine.backend.toUpperCase()}…`);
         await engine.init();
         onStatus?.(`Ready on ${engine.backend.toUpperCase()}.`);
         return engine;
