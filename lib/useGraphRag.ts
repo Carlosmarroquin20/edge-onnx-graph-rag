@@ -88,8 +88,13 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
 
   const setModel = useCallback(
     async (id: string): Promise<void> => {
-      await getSession().setModel(id);
-      setStatus(`Model set to ${id}.`);
+      try {
+        await getSession().setModel(id);
+        setError(null);
+        setStatus(`Model set to ${id}.`);
+      } catch (caught) {
+        setError(messageOf(caught));
+      }
     },
     [getSession],
   );

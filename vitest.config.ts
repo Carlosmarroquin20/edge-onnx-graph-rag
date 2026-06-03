@@ -5,6 +5,6 @@ export default defineConfig({
     // Unit suite runs DOM-free; backends are exercised via injected stubs and
     // the runtime is mocked, so no browser environment is required.
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "lib/**/*.test.ts"],
   },
 });

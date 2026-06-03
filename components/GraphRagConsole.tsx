@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, ReactElement } from "react";
 
 import { useGraphRag } from "../lib/useGraphRag.js";
+import { validateModelId } from "../lib/modelId.js";
 import {
   DEFAULT_MODEL_ID,
   SAMPLE_QUERY,
@@ -36,6 +37,7 @@ export function GraphRagConsole(): ReactElement {
   }, [rag, corpus, mode]);
 
   const isBusy = rag.phase === "loading" || rag.phase === "generating";
+  const modelIdCheck = validateModelId(modelId);
 
   const onModeChange = (event: ChangeEvent<HTMLSelectElement>): void => {
     const next = event.target.value as CorpusMode;
@@ -82,14 +84,24 @@ export function GraphRagConsole(): ReactElement {
           <input
             value={modelId}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setModelId(e.target.value)}
-            onBlur={() => void rag.setModel(modelId)}
-            className={FIELD}
+            onBlur={() => {
+              if (modelIdCheck.ok) {
+                void rag.setModel(modelId);
+              }
+            }}
+            aria-invalid={!modelIdCheck.ok}
+            className={`${FIELD} ${modelIdCheck.ok ? "" : "border-red-700"}`}
             spellCheck={false}
           />
-          <p className="mt-1 text-[11px] text-neutral-500">
-            Any Transformers.js-compatible ONNX text-generation repo. First run
-            downloads and caches weights in the browser.
-          </p>
+          {modelIdCheck.ok ? (
+            <p className="mt-1 text-[11px] text-neutral-500">
+              Any Transformers.js-compatible ONNX text-generation repo
+              (namespace/name). First run downloads and caches weights in the
+              browser.
+            </p>
+          ) : (
+            <p className="mt-1 text-[11px] text-red-400">{modelIdCheck.reason}</p>
+          )}
         </section>
 
         <section className={PANEL}>
@@ -104,7 +116,7 @@ export function GraphRagConsole(): ReactElement {
           <div className="mt-2 flex items-center gap-2">
             <button
               type="button"
-              disabled={isBusy || query.trim().length === 0}
+              disabled={isBusy || query.trim().length === 0 || !modelIdCheck.ok}
               onClick={() => void rag.ask(query)}
               className="rounded bg-emerald-500 px-3 py-1.5 text-xs font-medium text-neutral-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
             >

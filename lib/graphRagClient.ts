@@ -25,6 +25,7 @@ import type {
   NodeId,
 } from "@core/types";
 import { WorkerEngineClient } from "./workerEngineClient.js";
+import { validateModelId } from "./modelId.js";
 import type { CorpusMode } from "./sampleData.js";
 
 export interface GraphStats {
@@ -55,11 +56,13 @@ export class GraphRagSession {
   private readonly aggregator = new MetricsAggregator();
   private enginePromise: Promise<InferenceEngine> | null = null;
   private busy = false;
+  private modelId: string;
+  private readonly dtype: "fp32" | "fp16" | "q8" | "q4";
 
-  constructor(
-    private modelId: string,
-    private readonly dtype: "fp32" | "fp16" | "q8" | "q4" = "q4",
-  ) {}
+  constructor(modelId: string, dtype: "fp32" | "fp16" | "q8" | "q4" = "q4") {
+    this.modelId = requireValidModelId(modelId);
+    this.dtype = dtype;
+  }
 
   /** Rebuilds the graph from source text. Replaces any prior graph. */
   buildGraph(source: string, mode: CorpusMode): GraphStats {
@@ -73,13 +76,17 @@ export class GraphRagSession {
     return { nodeCount: this.store.nodeCount, edgeCount: this.store.edgeCount };
   }
 
-  /** Selects a model, discarding any engine bound to the previous one. */
+  /**
+   * Selects a model, discarding any engine bound to the previous one. The id is
+   * validated before it can reach the loader; an invalid id throws.
+   */
   async setModel(modelId: string): Promise<void> {
-    if (modelId === this.modelId) {
+    const next = requireValidModelId(modelId);
+    if (next === this.modelId) {
       return;
     }
     await this.disposeEngine();
-    this.modelId = modelId;
+    this.modelId = next;
   }
 
   /**
@@ -198,4 +205,13 @@ export class GraphRagSession {
     }
     return labels;
   }
+}
+
+/** Returns the normalized id, or throws with the validation reason. */
+function requireValidModelId(modelId: string): string {
+  const result = validateModelId(modelId);
+  if (!result.ok || result.normalized === undefined) {
+    throw new Error(result.reason ?? "Invalid model id.");
+  }
+  return result.normalized;
 }

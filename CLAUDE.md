@@ -246,6 +246,16 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     `ensureEngine` no longer caches a failed load (clears the promise and tears
     down the worker so the next attempt retries cleanly).
   - Verified: `tsc` clean; 70 tests green; `next build` succeeds.
+- Phase 4 — S3, model-id input validation (`lib/`):
+  - `modelId.ts` (`validateModelId`): constrains the user-supplied model id to a
+    HF-style repo id; rejects URLs/protocol-relative, path traversal (`..`),
+    backslashes, whitespace, >1 `/`, out-of-charset, and over-length. Pure +
+    unit-tested (`lib/modelId.test.ts`; vitest `include` now covers `lib/`).
+  - `GraphRagSession` validates in its constructor and `setModel` (an invalid id
+    can never reach the loader); `GraphRagConsole` shows inline feedback and
+    disables Ask on an invalid id; `useGraphRag.setModel` surfaces the reason.
+  - Verified: `tsc` clean; 80 tests green (70 core + 10 validator); `next build`
+    succeeds.
 
 ### Pending
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
