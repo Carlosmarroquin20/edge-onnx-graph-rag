@@ -60,11 +60,16 @@ Without isolation the WASM backend falls back to single-threaded execution.
 ## Status
 
 The client-side core is complete and unit-tested (70 tests, strict type-check
-clean); `npm run dev` compiles and renders. Two items remain:
+clean). `npm run dev` compiles and renders; `npm run build` succeeds (the page is
+~7 kB / ~95 kB First Load JS — the ONNX/Transformers.js runtime loads lazily in a
+separate chunk, never on first paint or during SSR).
 
-- **Production build (`npm run build`)** currently fails in Terser minification of
-  `onnxruntime-web`'s worker bundle (`'import.meta' cannot be used outside of
-  module code`) — a known ORT-web/webpack interaction. Development is unaffected
-  (the dev server does not run Terser). Tracked in `CLAUDE.md`.
-- **Live end-to-end inference** (real model on WebGPU/WASM) must be exercised in a
-  browser; the unit suite covers everything up to the `InferenceEngine` contract.
+`next.config.mjs` flags `onnxruntime-web`'s pre-minified worker bundles as already
+minimized so Terser skips them (they use `import.meta`, which Terser rejects when
+re-minifying ESM assets as non-modules).
+
+One item remains:
+
+- **Live end-to-end inference** (a real model on WebGPU/WASM) must be exercised in
+  a browser; the unit suite covers everything up to the `InferenceEngine` contract,
+  and the build/dev server are verified, but a model has not yet been run in-page.

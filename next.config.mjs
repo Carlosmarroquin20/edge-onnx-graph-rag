@@ -53,6 +53,44 @@ const nextConfig = {
       path: false,
       crypto: false,
     };
+    // onnxruntime-web emits pre-minified ESM worker bundles (e.g.
+    // `ort.bundle.min.mjs`) that use `import.meta`. Terser's default test
+    // matches `.mjs` and re-minifies them as non-modules, which rejects
+    // `import.meta`. They are already minified, so exclude them from Terser.
+    // Emitted as e.g. `static/media/ort.bundle.min.<hash>.mjs`, so match the ort
+    // worker/wasm-glue bundles by name (a content hash precedes the extension).
+    // The bundles are emitted as content-hashed assets (e.g.
+    // `static/media/ort.bundle.min.<hash>.mjs`) and Next wraps its minimizer so
+    // its options cannot be configured. terser-webpack-plugin skips any asset
+    // already flagged `minimized`; mark the ort bundles as such before the
+    // minify stage so Terser leaves them untouched.
+    config.plugins.push({
+      apply(compiler) {
+        const { Compilation } = compiler.webpack;
+        compiler.hooks.compilation.tap("SkipMinifyOrtBundle", (compilation) => {
+          compilation.hooks.processAssets.tap(
+            {
+              name: "SkipMinifyOrtBundle",
+              stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE,
+            },
+            (assets) => {
+              for (const name of Object.keys(assets)) {
+                if (!/ort.*\.m?js$/i.test(name)) {
+                  continue;
+                }
+                const asset = compilation.getAsset(name);
+                if (asset !== undefined) {
+                  compilation.updateAsset(name, asset.source, {
+                    ...asset.info,
+                    minimized: true,
+                  });
+                }
+              }
+            },
+          );
+        });
+      },
+    });
     return config;
   },
 };
