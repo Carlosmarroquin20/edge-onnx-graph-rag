@@ -270,8 +270,13 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
 - Error discipline (R3): `profiler/errors.ts` adds `ProfilerError` (code
   discriminant, mirrors `EngineError`/`GraphError`); `MetricsAggregator` throws
   it instead of a bare `Error` for the empty-aggregate guard. Suite now 95 tests.
-
-### Pending
+- Tooling (T1/T2):
+  - ESLint installed: flat config (`eslint.config.mjs`, ESLint 9 +
+    typescript-eslint recommended, non-type-checked); `lint` script now `eslint .`
+    with `.next`/`dist`/`next-env.d.ts` ignored and the `^_` unused-binding
+    convention allowed. `npm run lint` passes clean (zero findings).
+  - CI (`.github/workflows/ci.yml`): on push to `main` + PRs, runs `npm ci` then
+    typecheck → lint → test → build on Node 20. All four steps verified locally.
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
   fallback); the unit suite covers negotiation/factory, not live inference. This
   is the one path not yet exercised — everything upstream composes against the
@@ -282,8 +287,8 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
 - Optional: embedding-based hybrid ranking over `GraphNode.embedding`; semantic
   seed resolution to complement label matching in `resolveSeedsByLabel`;
   per-token emission for exact (vs. decode-step) generated-token counts.
-- Tooling: ESLint config (the `lint` script is declared but ESLint is not yet a
-  dependency).
+- Tooling: optional type-aware ESLint (typescript-eslint `projectService`) for
+  deeper rules; the current config is non-type-checked for speed.
 
 ### Conventions Decided
 - ESM-only, no CommonJS. `moduleResolution: "Bundler"`.
