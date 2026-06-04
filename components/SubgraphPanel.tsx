@@ -1,3 +1,5 @@
+import type { ReactElement } from "react";
+
 import type { AssembledContext } from "@core/graph";
 
 export function SubgraphPanel({
@@ -6,15 +8,13 @@ export function SubgraphPanel({
 }: {
   readonly context: AssembledContext | null;
   readonly seedLabels: ReadonlyArray<string>;
-}): React.ReactElement {
+}): ReactElement {
   return (
-    <section className="space-y-3">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-neutral-300">
-          Retrieved context
-        </h2>
+        <h2 className="text-sm font-semibold text-neutral-200">Retrieved context</h2>
         {context !== null && (
-          <span className="text-[10px] uppercase tracking-wide text-neutral-500">
+          <span className="font-mono text-[11px] text-neutral-500">
             {context.includedNodes.length} nodes · {context.tokenCount} tok
             {context.truncated ? " · truncated" : ""}
           </span>
@@ -22,11 +22,12 @@ export function SubgraphPanel({
       </div>
 
       {seedLabels.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-neutral-500">seeds:</span>
           {seedLabels.map((label) => (
             <span
               key={label}
-              className="rounded bg-emerald-900/40 px-2 py-0.5 text-[11px] text-emerald-300"
+              className="rounded-md border border-emerald-800/50 bg-emerald-900/30 px-2 py-0.5 font-mono text-[11px] text-emerald-300"
             >
               {label}
             </span>
@@ -39,10 +40,10 @@ export function SubgraphPanel({
           No context retrieved — generation runs on the bare query.
         </p>
       ) : (
-        <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded border border-neutral-800 bg-neutral-900/60 p-3 text-xs text-neutral-300">
+        <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-neutral-800 bg-neutral-950/60 p-3 font-mono text-xs leading-relaxed text-neutral-300">
           {context.text}
         </pre>
       )}
-    </section>
+    </div>
   );
 }

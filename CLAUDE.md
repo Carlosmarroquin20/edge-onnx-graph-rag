@@ -277,6 +277,23 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     convention allowed. `npm run lint` passes clean (zero findings).
   - CI (`.github/workflows/ci.yml`): on push to `main` + PRs, runs `npm ci` then
     typecheck → lint → test → build on Node 20. All four steps verified locally.
+- UI/UX pass (visual; not yet browser-verified):
+  - Theme: `font-sans` for UI/prose, `font-mono` reserved for data (metrics,
+    retrieved context, model id); subtle top emerald glow; emerald selection;
+    `focus-visible` rings on all controls.
+  - Layout: results column widened (`lg:grid-cols-5`, inputs 2 / results 3) so
+    the metrics "wow" dominates; numbered step headers (①②③) for the
+    Build → Model → Ask flow.
+  - Model-loading state: dedicated card (spinner + "first run downloads weights,
+    cached afterwards") distinct from the streaming caret; Ask button label
+    tracks phase (Loading…/Generating…/Ask the graph) with `aria-busy`.
+  - `MetricsPanel`: hero stats (throughput, TTFT) + WebGPU/WASM backend badge;
+    secondary stat grid; mono/tabular-nums table.
+  - a11y: `aria-label`s on inputs, `role="status"`/`aria-live` on status+answer,
+    `role="alert"` on errors, `aria-invalid` on the model id.
+  - Verified: `tsc` + `lint` clean; `next build` succeeds and prerenders `/`
+    statically. Real percentage for the download state remains U1 (worker
+    `progress_callback`); visual polish pending a browser session.
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
   fallback); the unit suite covers negotiation/factory, not live inference. This
   is the one path not yet exercised — everything upstream composes against the

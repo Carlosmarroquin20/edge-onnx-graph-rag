@@ -7,5 +7,16 @@
 }
 
 body {
-  @apply bg-neutral-950 text-neutral-100 antialiased;
+  @apply bg-neutral-950 text-neutral-200 antialiased;
+  /* Subtle emerald glow at the top for depth, without competing with content. */
+  background-image: radial-gradient(
+    55rem 28rem at 50% -8%,
+    rgba(16, 185, 129, 0.07),
+    transparent 70%
+  );
+  background-attachment: fixed;
+}
+
+::selection {
+  @apply bg-emerald-500/30 text-emerald-50;
 }

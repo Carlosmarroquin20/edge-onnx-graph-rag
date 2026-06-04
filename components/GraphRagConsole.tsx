@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ChangeEvent, ReactElement } from "react";
+import type { ChangeEvent, ReactElement, ReactNode } from "react";
 
 import { useGraphRag } from "../lib/useGraphRag.js";
 import { validateModelId } from "../lib/modelId.js";
@@ -15,9 +15,48 @@ import {
 import { MetricsPanel } from "./MetricsPanel.js";
 import { SubgraphPanel } from "./SubgraphPanel.js";
 
-const PANEL = "rounded-lg border border-neutral-800 bg-neutral-900/40 p-4";
+const PANEL = "rounded-xl border border-neutral-800/80 bg-neutral-900/40 p-5";
 const FIELD =
-  "w-full rounded border border-neutral-800 bg-neutral-950 p-2 text-xs text-neutral-100 focus:border-neutral-600 focus:outline-none";
+  "w-full rounded-lg border border-neutral-800 bg-neutral-950 p-2.5 text-sm text-neutral-100 placeholder:text-neutral-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40";
+const PRIMARY_BTN =
+  "inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-neutral-950 transition hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 disabled:cursor-not-allowed disabled:opacity-40";
+const GHOST_BTN =
+  "inline-flex items-center gap-2 rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-300 transition hover:border-neutral-500 hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500";
+
+function SectionHeader({
+  step,
+  title,
+  hint,
+}: {
+  readonly step: string;
+  readonly title: string;
+  readonly hint?: string;
+}): ReactElement {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <span className="flex h-5 w-5 items-center justify-center rounded-md bg-neutral-800 font-mono text-[11px] font-medium text-neutral-400">
+        {step}
+      </span>
+      <h2 className="text-sm font-semibold text-neutral-200">{title}</h2>
+      {hint !== undefined && (
+        <span className="ml-auto font-mono text-[11px] text-neutral-500">{hint}</span>
+      )}
+    </div>
+  );
+}
+
+function Spinner(): ReactElement {
+  return (
+    <span
+      className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-neutral-700 border-t-emerald-400"
+      aria-hidden="true"
+    />
+  );
+}
+
+function Panel({ children }: { readonly children: ReactNode }): ReactElement {
+  return <section className={PANEL}>{children}</section>;
+}
 
 export function GraphRagConsole(): ReactElement {
   const rag = useGraphRag(DEFAULT_MODEL_ID);
@@ -38,6 +77,7 @@ export function GraphRagConsole(): ReactElement {
 
   const isBusy = rag.phase === "loading" || rag.phase === "generating";
   const modelIdCheck = validateModelId(modelId);
+  const canAsk = !isBusy && query.trim().length > 0 && modelIdCheck.ok;
 
   const onModeChange = (event: ChangeEvent<HTMLSelectElement>): void => {
     const next = event.target.value as CorpusMode;
@@ -46,42 +86,42 @@ export function GraphRagConsole(): ReactElement {
   };
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <div className="space-y-4">
-        <section className={PANEL}>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-neutral-300">Knowledge source</h2>
-            <select
-              value={mode}
-              onChange={onModeChange}
-              className="rounded border border-neutral-800 bg-neutral-950 px-2 py-1 text-xs"
-            >
-              <option value="triples">Triples (subject | predicate | object)</option>
-              <option value="text">Free text (co-occurrence)</option>
-            </select>
-          </div>
+    <div className="grid gap-6 lg:grid-cols-5">
+      {/* Configuration / input */}
+      <div className="space-y-6 lg:col-span-2">
+        <Panel>
+          <SectionHeader
+            step="1"
+            title="Knowledge source"
+            hint={`${rag.graphStats.nodeCount} nodes · ${rag.graphStats.edgeCount} edges`}
+          />
+          <select
+            aria-label="Knowledge source format"
+            value={mode}
+            onChange={onModeChange}
+            className={`${FIELD} mb-2 cursor-pointer`}
+          >
+            <option value="triples">Triples — subject | predicate | object</option>
+            <option value="text">Free text — co-occurrence</option>
+          </select>
           <textarea
+            aria-label="Knowledge source text"
             value={corpus}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setCorpus(e.target.value)}
             rows={7}
-            className={`${FIELD} resize-y`}
+            className={`${FIELD} resize-y font-mono text-xs leading-relaxed`}
             spellCheck={false}
           />
-          <button
-            type="button"
-            onClick={() => rag.buildGraph(corpus, mode)}
-            className="mt-2 rounded bg-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-900 hover:bg-white"
-          >
-            Build graph
+          <button type="button" onClick={() => rag.buildGraph(corpus, mode)} className={`${GHOST_BTN} mt-3`}>
+            Build knowledge graph
           </button>
-          <span className="ml-3 text-xs text-neutral-500">
-            {rag.graphStats.nodeCount} nodes · {rag.graphStats.edgeCount} edges
-          </span>
-        </section>
+        </Panel>
 
-        <section className={PANEL}>
-          <h2 className="mb-2 text-sm font-semibold text-neutral-300">Model</h2>
+        <Panel>
+          <SectionHeader step="2" title="Model" />
           <input
+            aria-label="Model repository id"
+            aria-invalid={!modelIdCheck.ok}
             value={modelId}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setModelId(e.target.value)}
             onBlur={() => {
@@ -89,82 +129,118 @@ export function GraphRagConsole(): ReactElement {
                 void rag.setModel(modelId);
               }
             }}
-            aria-invalid={!modelIdCheck.ok}
-            className={`${FIELD} ${modelIdCheck.ok ? "" : "border-red-700"}`}
+            className={`${FIELD} font-mono text-xs ${modelIdCheck.ok ? "" : "border-red-700 focus-visible:ring-red-500/40"}`}
             spellCheck={false}
           />
           {modelIdCheck.ok ? (
-            <p className="mt-1 text-[11px] text-neutral-500">
+            <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">
               Any Transformers.js-compatible ONNX text-generation repo
-              (namespace/name). First run downloads and caches weights in the
-              browser.
+              (namespace/name). Weights download once and cache in your browser.
             </p>
           ) : (
-            <p className="mt-1 text-[11px] text-red-400">{modelIdCheck.reason}</p>
+            <p className="mt-2 text-[11px] text-red-400">{modelIdCheck.reason}</p>
           )}
-        </section>
+        </Panel>
 
-        <section className={PANEL}>
-          <h2 className="mb-2 text-sm font-semibold text-neutral-300">Query</h2>
+        <Panel>
+          <SectionHeader step="3" title="Ask" />
           <textarea
+            aria-label="Query"
             value={query}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setQuery(e.target.value)}
             rows={3}
             className={`${FIELD} resize-y`}
             spellCheck={false}
           />
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
               type="button"
-              disabled={isBusy || query.trim().length === 0 || !modelIdCheck.ok}
+              disabled={!canAsk}
+              aria-busy={isBusy}
               onClick={() => void rag.ask(query)}
-              className="rounded bg-emerald-500 px-3 py-1.5 text-xs font-medium text-neutral-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className={PRIMARY_BTN}
             >
-              Ask
+              {isBusy && <Spinner />}
+              {rag.phase === "loading"
+                ? "Loading model…"
+                : rag.phase === "generating"
+                  ? "Generating…"
+                  : "Ask the graph"}
             </button>
             {isBusy && (
-              <button
-                type="button"
-                onClick={() => rag.cancel()}
-                className="rounded border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-neutral-500"
-              >
+              <button type="button" onClick={() => rag.cancel()} className={GHOST_BTN}>
                 Cancel
               </button>
             )}
-            <span className="text-xs text-neutral-500">{rag.status}</span>
           </div>
           {rag.error !== null && (
-            <p className="mt-2 rounded border border-red-900/60 bg-red-950/40 p-2 text-xs text-red-300">
+            <p
+              role="alert"
+              className="mt-3 rounded-lg border border-red-900/60 bg-red-950/40 p-2.5 text-xs text-red-300"
+            >
               {rag.error}
             </p>
           )}
-        </section>
+        </Panel>
       </div>
 
-      <div className="space-y-4">
-        <section className={PANEL}>
-          <h2 className="mb-2 text-sm font-semibold text-neutral-300">Answer</h2>
-          <div className="min-h-24 whitespace-pre-wrap text-sm text-neutral-100">
-            {rag.answer}
-            {rag.phase === "generating" && (
-              <span className="ml-0.5 inline-block h-3 w-2 animate-pulse bg-emerald-400 align-middle" />
-            )}
+      {/* Results — the focal point */}
+      <div className="space-y-6 lg:col-span-3">
+        <Panel>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-neutral-200">Answer</h2>
+            <span
+              role="status"
+              aria-live="polite"
+              className="font-mono text-[11px] text-neutral-500"
+            >
+              {rag.status}
+            </span>
           </div>
-        </section>
 
-        <section className={PANEL}>
+          {rag.phase === "loading" && rag.answer.length === 0 ? (
+            <div className="flex items-start gap-3 rounded-lg border border-neutral-800 bg-neutral-950/60 p-4">
+              <Spinner />
+              <div className="space-y-1">
+                <p className="text-sm text-neutral-200">Loading the model</p>
+                <p className="text-xs leading-relaxed text-neutral-500">
+                  The first run downloads the model weights and caches them in
+                  your browser; later runs start instantly. Inference then runs
+                  on-device — no server involved.
+                </p>
+              </div>
+            </div>
+          ) : rag.answer.length > 0 ? (
+            <div
+              aria-live="polite"
+              className="min-h-24 whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-100"
+            >
+              {rag.answer}
+              {rag.phase === "generating" && (
+                <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-emerald-400 align-text-bottom" />
+              )}
+            </div>
+          ) : (
+            <p className="min-h-24 text-sm text-neutral-500">
+              Build a graph, then ask a question — the answer streams here as the
+              model decodes it.
+            </p>
+          )}
+        </Panel>
+
+        <Panel>
           <SubgraphPanel
             context={rag.outcome?.context ?? null}
             seedLabels={rag.outcome?.seedLabels ?? []}
           />
-        </section>
+        </Panel>
 
-        <section className={PANEL}>
+        <Panel>
           <MetricsPanel
             latest={rag.outcome?.metrics ?? null}
             aggregates={rag.aggregates}
           />
-        </section>
+        </Panel>
       </div>
     </div>
   );
