@@ -9,3 +9,5 @@ export {
 } from "./profileGeneration.js";
 
 export { MetricsAggregator } from "./MetricsAggregator.js";
+
+export { ProfilerError, type ProfilerErrorCode } from "./errors.js";

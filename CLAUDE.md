@@ -267,6 +267,9 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
   index once in `buildGraph` and injects an index-backed `resolveSeeds` into the
   pipeline, so repeated queries over a stable graph are O(mentions), not O(nodes).
   Suite now 93 tests; `tsc` + `vitest run` + `next build` green.
+- Error discipline (R3): `profiler/errors.ts` adds `ProfilerError` (code
+  discriminant, mirrors `EngineError`/`GraphError`); `MetricsAggregator` throws
+  it instead of a bare `Error` for the empty-aggregate guard. Suite now 95 tests.
 
 ### Pending
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
