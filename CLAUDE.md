@@ -292,8 +292,24 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
   - a11y: `aria-label`s on inputs, `role="status"`/`aria-live` on status+answer,
     `role="alert"` on errors, `aria-invalid` on the model id.
   - Verified: `tsc` + `lint` clean; `next build` succeeds and prerenders `/`
-    statically. Real percentage for the download state remains U1 (worker
-    `progress_callback`); visual polish pending a browser session.
+    statically. Visual polish pending a browser session.
+- U1 — real model-download progress (end-to-end):
+  - Contract: `ModelLoadProgress`/`ProgressListener` added to `types/inference`;
+    `InferenceEngine.init(onProgress?)`. `TransformersBackend.init` maps
+    Transformers.js `progress_callback` (`ProgressInfo`) → the clone-safe
+    `ModelLoadProgress`.
+  - Worker: a `progress` response added to `workerProtocol`; the worker forwards
+    `engine.init` progress; `WorkerEngineClient.init(onProgress?)` relays it to
+    the main thread.
+  - `lib/loadProgress.ts` (`DownloadAggregator`): folds per-file byte events into
+    one overall percent (capped <100 until `ready`); pure + unit-tested
+    (`loadProgress.test.ts`).
+  - `GraphRagSession.ask`/`ensureEngine` thread `onProgress`; `useGraphRag` feeds
+    the aggregator into a `download` state; `GraphRagConsole` renders a real
+    progress bar (percent + current file) in the loading card, falling back to an
+    indeterminate spinner on a cache hit (no byte totals).
+  - Verified: `tsc` + `lint` clean; 100 tests green (+5 aggregator); `next build`
+    succeeds.
 - Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
   fallback); the unit suite covers negotiation/factory, not live inference. This
   is the one path not yet exercised — everything upstream composes against the

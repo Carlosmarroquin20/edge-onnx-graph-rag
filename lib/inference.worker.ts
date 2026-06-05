@@ -37,7 +37,7 @@ async function handleInit(
       ...(message.revision !== undefined ? { revision: message.revision } : {}),
     };
     engine = await createInferenceEngine(config);
-    await engine.init();
+    await engine.init((progress) => reply({ type: "progress", progress }));
     reply({ type: "ready", backend: engine.backend });
   } catch (error) {
     reply({ type: "init-error", message: describe(error) });

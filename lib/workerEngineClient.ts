@@ -17,6 +17,7 @@ import type {
   GenerationResult,
   GenerationToken,
   InferenceEngine,
+  ProgressListener,
 } from "@core/types";
 import type {
   EngineDtype,
@@ -55,6 +56,7 @@ export class WorkerEngineClient implements InferenceEngine {
   private initReject: ((reason: unknown) => void) | null = null;
   private nextRequestId = 1;
   private negotiatedBackend: BackendKind = "wasm";
+  private onProgress: ProgressListener | undefined;
 
   constructor(private readonly config: EngineConfig) {
     this.worker = new Worker(new URL("./inference.worker.ts", import.meta.url), {
@@ -67,8 +69,9 @@ export class WorkerEngineClient implements InferenceEngine {
     return this.negotiatedBackend;
   }
 
-  init(): Promise<void> {
+  init(onProgress?: ProgressListener): Promise<void> {
     if (this.initPromise === null) {
+      this.onProgress = onProgress;
       this.initPromise = new Promise<void>((resolve, reject) => {
         this.initResolve = resolve;
         this.initReject = reject;
@@ -159,6 +162,9 @@ export class WorkerEngineClient implements InferenceEngine {
   private readonly handleMessage = (event: MessageEvent<WorkerResponse>): void => {
     const message = event.data;
     switch (message.type) {
+      case "progress":
+        this.onProgress?.(message.progress);
+        break;
       case "ready":
         this.negotiatedBackend = message.backend;
         this.settleInit(null);

@@ -7,7 +7,7 @@
  * by `requestId`.
  */
 
-import type { BackendKind, GenerationToken } from "@core/types";
+import type { BackendKind, GenerationToken, ModelLoadProgress } from "@core/types";
 
 export type EngineDtype = "fp32" | "fp16" | "q8" | "q4";
 
@@ -38,6 +38,7 @@ export type WorkerRequest =
 
 /** Worker → main thread. */
 export type WorkerResponse =
+  | { readonly type: "progress"; readonly progress: ModelLoadProgress }
   | { readonly type: "ready"; readonly backend: BackendKind }
   | { readonly type: "init-error"; readonly message: string }
   | {

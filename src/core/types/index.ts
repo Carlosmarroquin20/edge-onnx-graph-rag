@@ -8,6 +8,9 @@ export type {
   GenerationResult,
   GenerationToken,
   InferenceEngine,
+  ModelLoadProgress,
+  ModelLoadStatus,
+  ProgressListener,
 } from "./inference.js";
 
 export type {

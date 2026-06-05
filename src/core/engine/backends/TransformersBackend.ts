@@ -32,6 +32,7 @@ import type {
   GenerationResult,
   GenerationToken,
   InferenceEngine,
+  ProgressListener,
 } from "../../types/inference.js";
 import type { CapabilityReport } from "../../types/inference.js";
 import { EngineError } from "../../types/errors.js";
@@ -88,7 +89,7 @@ export abstract class TransformersBackend implements InferenceEngine {
     // Default: no additional configuration.
   }
 
-  async init(): Promise<void> {
+  async init(onProgress?: ProgressListener): Promise<void> {
     if (this.pipe !== null) {
       return;
     }
@@ -104,6 +105,25 @@ export abstract class TransformersBackend implements InferenceEngine {
     };
     if (this.config.revision !== undefined) {
       options.revision = this.config.revision;
+    }
+    if (onProgress !== undefined) {
+      // `info` is contextually typed as Transformers.js `ProgressInfo`; map it to
+      // the backend-agnostic, clone-safe `ModelLoadProgress`.
+      options.progress_callback = (info) => {
+        if (info.status === "progress") {
+          onProgress({
+            status: "progress",
+            file: info.file,
+            loaded: info.loaded,
+            total: info.total,
+            progress: info.progress,
+          });
+        } else if (info.status === "ready") {
+          onProgress({ status: "ready" });
+        } else {
+          onProgress({ status: info.status, file: info.file });
+        }
+      };
     }
 
     // The generic `pipeline` signature expands `AllTasks[T]` into a union TS

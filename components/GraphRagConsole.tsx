@@ -5,6 +5,7 @@ import type { ChangeEvent, ReactElement, ReactNode } from "react";
 
 import { useGraphRag } from "../lib/useGraphRag.js";
 import { validateModelId } from "../lib/modelId.js";
+import type { DownloadState } from "../lib/loadProgress.js";
 import {
   DEFAULT_MODEL_ID,
   SAMPLE_QUERY,
@@ -56,6 +57,43 @@ function Spinner(): ReactElement {
 
 function Panel({ children }: { readonly children: ReactNode }): ReactElement {
   return <section className={PANEL}>{children}</section>;
+}
+
+function LoadingCard({ download }: { readonly download: DownloadState }): ReactElement {
+  const percent = download.percent;
+  return (
+    <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4">
+      <div className="flex items-center gap-3">
+        <Spinner />
+        <p className="text-sm text-neutral-200">
+          {percent === null ? "Loading the model" : "Downloading model weights"}
+        </p>
+        {percent !== null && (
+          <span className="ml-auto font-mono text-xs tabular-nums text-emerald-300">
+            {percent}%
+          </span>
+        )}
+      </div>
+      {percent !== null && (
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-neutral-800">
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      )}
+      <p className="mt-3 text-xs leading-relaxed text-neutral-500">
+        {download.file !== null && percent !== null ? (
+          <>
+            Fetching <span className="font-mono text-neutral-400">{download.file}</span>.{" "}
+          </>
+        ) : null}
+        The first run downloads the model weights and caches them in your browser;
+        later runs start instantly. Inference then runs on-device — no server
+        involved.
+      </p>
+    </div>
+  );
 }
 
 export function GraphRagConsole(): ReactElement {
@@ -199,17 +237,7 @@ export function GraphRagConsole(): ReactElement {
           </div>
 
           {rag.phase === "loading" && rag.answer.length === 0 ? (
-            <div className="flex items-start gap-3 rounded-lg border border-neutral-800 bg-neutral-950/60 p-4">
-              <Spinner />
-              <div className="space-y-1">
-                <p className="text-sm text-neutral-200">Loading the model</p>
-                <p className="text-xs leading-relaxed text-neutral-500">
-                  The first run downloads the model weights and caches them in
-                  your browser; later runs start instantly. Inference then runs
-                  on-device — no server involved.
-                </p>
-              </div>
-            </div>
+            <LoadingCard download={rag.download} />
           ) : rag.answer.length > 0 ? (
             <div
               aria-live="polite"

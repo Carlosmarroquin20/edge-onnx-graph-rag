@@ -78,6 +78,29 @@ export interface EngineConfig {
   readonly threads?: number;
 }
 
+/** Status of a model-asset load event. */
+export type ModelLoadStatus =
+  | "initiate"
+  | "download"
+  | "progress"
+  | "done"
+  | "ready";
+
+/**
+ * A normalized model-load progress event. Backend-agnostic and structured-clone
+ * safe, so it can cross a worker boundary. `loaded`/`total` are bytes and
+ * `progress` is a 0–100 percentage for the file currently downloading.
+ */
+export interface ModelLoadProgress {
+  readonly status: ModelLoadStatus;
+  readonly file?: string;
+  readonly loaded?: number;
+  readonly total?: number;
+  readonly progress?: number;
+}
+
+export type ProgressListener = (progress: ModelLoadProgress) => void;
+
 /**
  * Backend-agnostic inference engine.
  *
@@ -90,9 +113,10 @@ export interface InferenceEngine {
 
   /**
    * Load the model and perform a warm-up pass to amortize shader/graph
-   * compilation. Idempotent; safe to await once before first use.
+   * compilation. Idempotent; safe to await once before first use. An optional
+   * listener receives model-asset download progress during the first load.
    */
-  init(): Promise<void>;
+  init(onProgress?: ProgressListener): Promise<void>;
 
   /**
    * Stream a completion token-by-token. The first yielded token marks TTFT.

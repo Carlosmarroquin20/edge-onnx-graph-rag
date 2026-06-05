@@ -27,7 +27,9 @@ import type {
   AggregatedMetrics,
   ExecutionMetrics,
   InferenceEngine,
+  ModelLoadProgress,
   NodeId,
+  ProgressListener,
 } from "@core/types";
 import { WorkerEngineClient } from "./workerEngineClient.js";
 import { validateModelId } from "./modelId.js";
@@ -43,6 +45,8 @@ export interface AskHandlers {
   readonly onToken: (text: string) => void;
   /** Invoked with engine load/init progress messages. */
   readonly onStatus?: (status: string) => void;
+  /** Invoked with model-download progress events during the first load. */
+  readonly onProgress?: (progress: ModelLoadProgress) => void;
   /** Cancellation signal for the generation. */
   readonly signal?: AbortSignal;
   /** Retrieval/generation overrides forwarded to the pipeline. */
@@ -104,15 +108,19 @@ export class GraphRagSession {
    * calls reuse the same worker. A failed load is not cached, so the next call
    * retries from a clean slate.
    */
-  async ensureEngine(onStatus?: (status: string) => void): Promise<InferenceEngine> {
+  async ensureEngine(
+    onStatus?: (status: string) => void,
+    onProgress?: ProgressListener,
+  ): Promise<InferenceEngine> {
     if (this.enginePromise === null) {
-      this.enginePromise = this.createEngine(onStatus);
+      this.enginePromise = this.createEngine(onStatus, onProgress);
     }
     return this.enginePromise;
   }
 
   private async createEngine(
     onStatus?: (status: string) => void,
+    onProgress?: ProgressListener,
   ): Promise<InferenceEngine> {
     onStatus?.("Loading model in a worker…");
     const engine = new WorkerEngineClient({
@@ -120,7 +128,7 @@ export class GraphRagSession {
       dtype: this.dtype,
     });
     try {
-      await engine.init();
+      await engine.init(onProgress);
     } catch (error) {
       // Tear down the worker and clear the cached promise so a retry is possible.
       await engine.dispose();
@@ -152,7 +160,7 @@ export class GraphRagSession {
     }
     this.busy = true;
     try {
-      const engine = await this.ensureEngine(handlers.onStatus);
+      const engine = await this.ensureEngine(handlers.onStatus, handlers.onProgress);
       const pipeline = new GraphRagPipeline(engine, this.store, {
         // Reuse the cached index instead of rebuilding it per query.
         resolveSeeds: (_store, text) => resolveSeedsFromIndex(this.labelIndex, text),

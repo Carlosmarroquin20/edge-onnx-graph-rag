@@ -15,6 +15,11 @@ import {
   type AskOutcome,
   type GraphStats,
 } from "./graphRagClient.js";
+import {
+  DownloadAggregator,
+  IDLE_DOWNLOAD,
+  type DownloadState,
+} from "./loadProgress.js";
 import { DEFAULT_MODEL_ID, type CorpusMode } from "./sampleData.js";
 import type { AggregatedMetrics } from "@core/types";
 
@@ -26,6 +31,7 @@ export interface UseGraphRag {
   readonly answer: string;
   readonly error: string | null;
   readonly graphStats: GraphStats;
+  readonly download: DownloadState;
   readonly outcome: AskOutcome | null;
   readonly aggregates: ReadonlyArray<AggregatedMetrics>;
   readonly buildGraph: (source: string, mode: CorpusMode) => void;
@@ -52,6 +58,7 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
   });
   const [outcome, setOutcome] = useState<AskOutcome | null>(null);
   const [aggregates, setAggregates] = useState<ReadonlyArray<AggregatedMetrics>>([]);
+  const [download, setDownload] = useState<DownloadState>(IDLE_DOWNLOAD);
 
   const getSession = useCallback((): GraphRagSession => {
     if (sessionRef.current === null) {
@@ -108,13 +115,16 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
       setError(null);
       setAnswer("");
       setOutcome(null);
+      setDownload(IDLE_DOWNLOAD);
       setPhase("loading");
       setStatus("Preparing…");
 
+      const downloads = new DownloadAggregator();
       try {
         const result = await session.ask(query, {
           signal: controller.signal,
           onStatus: setStatus,
+          onProgress: (progress) => setDownload(downloads.update(progress)),
           onToken: (text) => {
             setPhase("generating");
             setAnswer((previous) => previous + text);
@@ -151,6 +161,7 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
     answer,
     error,
     graphStats,
+    download,
     outcome,
     aggregates,
     buildGraph,
