@@ -68,6 +68,26 @@ describe("GraphStore node lifecycle", () => {
     const store = new GraphStore();
     expect(store.removeNode(asNodeId("ghost"))).toBe(false);
   });
+
+  it("attaches an embedding to an existing node without touching adjacency", () => {
+    const store = new GraphStore();
+    store.addNode(node("A"));
+    store.addNode(node("B"));
+    store.addEdge(edge("e1", "A", "B"));
+
+    store.setNodeEmbedding(asNodeId("A"), [0.1, 0.2, 0.3]);
+
+    expect(store.getNode(asNodeId("A"))?.embedding).toEqual([0.1, 0.2, 0.3]);
+    expect(store.getNode(asNodeId("A"))?.label).toBe("A");
+    expect(neighborsOf(store, "A", "out")).toEqual(["B"]);
+  });
+
+  it("throws when embedding an absent node", () => {
+    const store = new GraphStore();
+    expect(() => store.setNodeEmbedding(asNodeId("ghost"), [1])).toThrowError(
+      GraphError,
+    );
+  });
 });
 
 describe("GraphStore edge lifecycle", () => {

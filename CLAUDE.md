@@ -421,8 +421,28 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
   - Next (PR B): a feature-extraction embedder in the worker, populate
     `GraphNode.embedding` at graph-build time, embed the query in
     `GraphRagSession.ask`, and enable the blend — then browser-verify.
-- Optional: embedding-based hybrid ranking over `GraphNode.embedding` (core landed
-  above; embedder integration pending); semantic
+- Hybrid retrieval — embedder integration (PR B of 2; completes the feature):
+  - Worker: a lazily-loaded feature-extraction pipeline (`Xenova/all-MiniLM-L6-v2`,
+    WASM EP / q8) added to `inference.worker.ts`; new `embed`/`embedded`/
+    `embed-error` messages in `workerProtocol`; the embedder is disposed alongside
+    the engine. It shares the one worker, so the heavy runtime is not duplicated.
+  - `workerEngineClient.ts`: an `Embedder` interface (`embed(texts) → number[][]`)
+    implemented by `WorkerEngineClient` next to `InferenceEngine`, with its own
+    request/response routing and disposal rejection.
+  - `GraphStore.setNodeEmbedding` attaches a node's vector (adjacency untouched).
+  - `GraphRagSession`: best-effort semantic re-ranking (default on, `setSemanticRerank`
+    toggle). On `ask` it embeds the graph's node labels once (`ensureNodeEmbeddings`,
+    reset per `buildGraph`) and the query, then passes `queryEmbedding` into the
+    pipeline. Any embedding failure degrades cleanly to structural retrieval — the
+    enhancement never blocks a turn. Engine typed `InferenceEngine & Embedder`.
+  - UI: a "Semantic re-ranking" checkbox in the Model panel, threaded through
+    `useGraphRag` (state + ref replay into recreated sessions, like the backend).
+  - Verified in-browser (WebGPU generation, WASM embedder): toggling on, the status
+    advanced "Embedding knowledge graph…" → "Embedding query…" (proving the
+    embedder loaded and embedded nodes + query), the pipeline blended the scores,
+    and a grounded answer streamed to completion. `GraphStore.setNodeEmbedding`
+    unit-tested (+2). `tsc` + `lint` clean; 125 tests green; `next build` succeeds.
+- Optional (remaining): semantic
   seed resolution to complement label matching in `resolveSeedsByLabel`;
   per-token emission for exact (vs. decode-step) generated-token counts.
 - Tooling: optional type-aware ESLint (typescript-eslint `projectService`) for

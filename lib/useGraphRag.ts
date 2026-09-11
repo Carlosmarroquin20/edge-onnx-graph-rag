@@ -36,10 +36,12 @@ export interface UseGraphRag {
   readonly outcome: AskOutcome | null;
   readonly aggregates: ReadonlyArray<AggregatedMetrics>;
   readonly backend: BackendChoice;
+  readonly semanticRerank: boolean;
   readonly buildGraph: (source: string, mode: CorpusMode) => void;
   readonly ask: (query: string) => Promise<void>;
   readonly setModel: (modelId: string) => Promise<void>;
   readonly setBackend: (choice: BackendChoice) => Promise<void>;
+  readonly setSemanticRerank: (enabled: boolean) => void;
   readonly cancel: () => void;
 }
 
@@ -56,6 +58,8 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
   const lastBuildRef = useRef<{ source: string; mode: CorpusMode } | null>(null);
   // Chosen backend, likewise replayed into any freshly created session.
   const backendRef = useRef<BackendChoice>("auto");
+  // Whether hybrid semantic re-ranking is enabled; replayed like the backend.
+  const semanticRef = useRef<boolean>(true);
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [status, setStatus] = useState<string>("");
@@ -69,10 +73,12 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
   const [aggregates, setAggregates] = useState<ReadonlyArray<AggregatedMetrics>>([]);
   const [download, setDownload] = useState<DownloadState>(IDLE_DOWNLOAD);
   const [backend, setBackendState] = useState<BackendChoice>("auto");
+  const [semanticRerank, setSemanticState] = useState<boolean>(true);
 
   const getSession = useCallback((): GraphRagSession => {
     if (sessionRef.current === null) {
       const session = new GraphRagSession(modelId, backendRef.current);
+      session.setSemanticRerank(semanticRef.current);
       // Re-apply the last-built graph so a freshly created session inherits it
       // instead of starting empty behind an unchanged "graph built" UI state.
       if (lastBuildRef.current !== null) {
@@ -182,6 +188,15 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
     [getSession],
   );
 
+  const setSemanticRerank = useCallback(
+    (enabled: boolean): void => {
+      semanticRef.current = enabled;
+      setSemanticState(enabled);
+      getSession().setSemanticRerank(enabled);
+    },
+    [getSession],
+  );
+
   const cancel = useCallback((): void => {
     abortRef.current?.abort();
   }, []);
@@ -196,10 +211,12 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
     outcome,
     aggregates,
     backend,
+    semanticRerank,
     buildGraph,
     ask,
     setModel,
     setBackend,
+    setSemanticRerank,
     cancel,
   };
 }

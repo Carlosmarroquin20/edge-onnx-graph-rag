@@ -36,6 +36,11 @@ export type WorkerRequest =
       readonly prompt: string;
       readonly options: SerializableGenerationOptions;
     }
+  | {
+      readonly type: "embed";
+      readonly requestId: number;
+      readonly texts: readonly string[];
+    }
   | { readonly type: "cancel"; readonly requestId: number }
   | { readonly type: "dispose" };
 
@@ -50,4 +55,11 @@ export type WorkerResponse =
       readonly token: GenerationToken;
     }
   | { readonly type: "done"; readonly requestId: number }
-  | { readonly type: "error"; readonly requestId: number; readonly message: string };
+  | { readonly type: "error"; readonly requestId: number; readonly message: string }
+  | {
+      readonly type: "embedded";
+      readonly requestId: number;
+      /** One dense vector per input text, in the same order. */
+      readonly vectors: number[][];
+    }
+  | { readonly type: "embed-error"; readonly requestId: number; readonly message: string };
