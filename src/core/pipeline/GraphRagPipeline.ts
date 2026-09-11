@@ -21,6 +21,7 @@ import type {
 import type { ExecutionMetrics } from "../types/metrics.js";
 import type {
   NodeId,
+  SubgraphResult,
   TraversalDirection,
 } from "../types/graph.js";
 import { GraphStore } from "../graph/GraphStore.js";
@@ -71,6 +72,8 @@ export interface PreparedQuery {
   readonly context: AssembledContext;
   /** Seed nodes that anchored retrieval. */
   readonly seeds: ReadonlyArray<NodeId>;
+  /** The retrieved subgraph (nodes, edges, scores) before context packing. */
+  readonly subgraph: SubgraphResult;
 }
 
 export interface GraphRagResult extends PreparedQuery {
@@ -192,7 +195,7 @@ export class GraphRagPipeline {
     });
 
     const prompt = this.promptTemplate(context.text, query);
-    return { prompt, context, seeds };
+    return { prompt, context, seeds, subgraph };
   }
 
   /** Runs the full pipeline and returns the answer with profiler metrics. */

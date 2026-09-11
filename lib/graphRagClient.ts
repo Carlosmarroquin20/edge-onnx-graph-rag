@@ -30,6 +30,7 @@ import type {
   ModelLoadProgress,
   NodeId,
   ProgressListener,
+  SubgraphResult,
 } from "@core/types";
 import { WorkerEngineClient } from "./workerEngineClient.js";
 import { validateModelId } from "./modelId.js";
@@ -57,6 +58,10 @@ export interface AskOutcome {
   readonly answer: string;
   readonly context: AssembledContext;
   readonly seedLabels: ReadonlyArray<string>;
+  /** Seed node ids, for highlighting the anchors in the subgraph view. */
+  readonly seedIds: ReadonlyArray<NodeId>;
+  /** The retrieved subgraph, for visualization. */
+  readonly subgraph: SubgraphResult;
   readonly metrics: ExecutionMetrics;
 }
 
@@ -175,7 +180,7 @@ export class GraphRagSession {
         },
       };
 
-      const { prompt, context, seeds, tokens } = pipeline.stream(query, runOptions);
+      const { prompt, context, seeds, subgraph, tokens } = pipeline.stream(query, runOptions);
 
       const run = profileGeneration(tokens, {
         backend: engine.backend,
@@ -192,7 +197,14 @@ export class GraphRagSession {
       const metrics = await run.metrics;
       this.aggregator.add(metrics);
 
-      return { answer, context, seedLabels: this.labelsFor(seeds), metrics };
+      return {
+        answer,
+        context,
+        seedLabels: this.labelsFor(seeds),
+        seedIds: seeds,
+        subgraph,
+        metrics,
+      };
     } finally {
       this.busy = false;
     }
