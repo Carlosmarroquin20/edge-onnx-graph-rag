@@ -33,10 +33,13 @@ async function handleInit(
   try {
     const config: EngineConfig = {
       modelId: message.modelId,
-      dtype: message.dtype,
+      ...(message.dtype !== undefined ? { dtype: message.dtype } : {}),
       ...(message.revision !== undefined ? { revision: message.revision } : {}),
     };
-    engine = await createInferenceEngine(config);
+    engine = await createInferenceEngine(
+      config,
+      message.preference !== undefined ? { preference: message.preference } : undefined,
+    );
     await engine.init((progress) => reply({ type: "progress", progress }));
     reply({ type: "ready", backend: engine.backend });
   } catch (error) {

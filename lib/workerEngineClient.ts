@@ -20,7 +20,6 @@ import type {
   ProgressListener,
 } from "@core/types";
 import type {
-  EngineDtype,
   SerializableGenerationOptions,
   WorkerRequest,
   WorkerResponse,
@@ -58,7 +57,10 @@ export class WorkerEngineClient implements InferenceEngine {
   private negotiatedBackend: BackendKind = "wasm";
   private onProgress: ProgressListener | undefined;
 
-  constructor(private readonly config: EngineConfig) {
+  constructor(
+    private readonly config: EngineConfig,
+    private readonly preference?: readonly BackendKind[],
+  ) {
     this.worker = new Worker(new URL("./inference.worker.ts", import.meta.url), {
       type: "module",
     });
@@ -79,8 +81,9 @@ export class WorkerEngineClient implements InferenceEngine {
       this.post({
         type: "init",
         modelId: this.config.modelId,
-        dtype: (this.config.dtype ?? "q4") as EngineDtype,
+        ...(this.config.dtype !== undefined ? { dtype: this.config.dtype } : {}),
         ...(this.config.revision !== undefined ? { revision: this.config.revision } : {}),
+        ...(this.preference !== undefined ? { preference: this.preference } : {}),
       });
     }
     return this.initPromise;

@@ -24,8 +24,11 @@ export type WorkerRequest =
   | {
       readonly type: "init";
       readonly modelId: string;
-      readonly dtype: EngineDtype;
+      /** Precision hint; omitted lets each backend apply its own default. */
+      readonly dtype?: EngineDtype;
       readonly revision?: string;
+      /** Ordered backend preference; omitted uses the factory default (WebGPU→WASM). */
+      readonly preference?: readonly BackendKind[];
     }
   | {
       readonly type: "generate";

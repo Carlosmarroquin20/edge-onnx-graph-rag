@@ -332,7 +332,7 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
   - No unit test added: the fix is React-hook-lifecycle-specific and the suite is
     deliberately node-only (no jsdom/testing-library) — validated by the live run.
     `tsc` + `lint` clean; 100 tests green.
-  - Still unexercised in-browser: the WASM fallback path (only WebGPU was live).
+  - (WASM path verified later — see the backend-selector entry below.)
 - CI hardening (merged via PR #1): the Windows-generated `package-lock.json`
   records only win32 Rollup binaries as package nodes, so `npm ci` on the Linux
   runner exited 0 without the Linux binary and vitest then failed to load
@@ -356,6 +356,25 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
   - Verified in-browser (WebGPU, live model run): the Ada/Babbage subgraph draws
     with both seeds highlighted, hover dimming works, and it composes with the
     metrics readout. `tsc` + `lint` clean; 100 tests green.
+- Backend selector + WASM fallback verified in-browser (closes the last live gap):
+  - User-facing execution-backend choice (`Auto` / `WebGPU` / `WASM`) threaded
+    UI → `useGraphRag` → `GraphRagSession` → `WorkerEngineClient` → worker →
+    `EngineFactory` via a `preference` list. `Auto` keeps WebGPU→WASM negotiation;
+    the explicit choices force one backend (forcing WebGPU on a host without it
+    surfaces as an init error, not a silent fallback). Choice is replayed into any
+    freshly created session (a ref, like the graph replay) and changing it disposes
+    the current engine so the next turn re-negotiates.
+  - Dropped the hard-coded `q4` dtype: the session sends no dtype, so each backend
+    applies its own default (`WebGpuBackend` q4, `WasmBackend` q8). `init`'s
+    `dtype` is now optional in the worker protocol; `preference` added alongside.
+  - Verified live: forcing WASM negotiated to the WASM EP (fetched
+    `onnx/model_quantized.onnx` — the q8 build — not `model_q4.onnx`), the
+    download bar advanced, the model loaded ("Ready on WASM"), tokens streamed a
+    grounded answer, and the profiler reported the WASM backend (TTFT ~2.2 s,
+    2.4 tok/s, 92 gen steps; MetricsPanel WASM badge + aggregation row). The
+    subgraph view renders identically (backend-agnostic).
+  - `tsc` + `lint` clean; 100 tests green (worker/UI plumbing exercised in-browser,
+    not unit-tested — the suite is node-only).
 - Optional: embedding-based hybrid ranking over `GraphNode.embedding`; semantic
   seed resolution to complement label matching in `resolveSeedsByLabel`;
   per-token emission for exact (vs. decode-step) generated-token counts.
