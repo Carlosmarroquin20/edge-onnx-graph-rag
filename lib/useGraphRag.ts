@@ -47,6 +47,10 @@ function messageOf(error: unknown): string {
 export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
   const sessionRef = useRef<GraphRagSession | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Last graph the caller built. Replayed whenever a fresh session is created so
+  // a recreated session (e.g. after a StrictMode remount disposes the previous
+  // one) is never silently empty while the UI still shows the built graph.
+  const lastBuildRef = useRef<{ source: string; mode: CorpusMode } | null>(null);
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [status, setStatus] = useState<string>("");
@@ -62,7 +66,13 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
 
   const getSession = useCallback((): GraphRagSession => {
     if (sessionRef.current === null) {
-      sessionRef.current = new GraphRagSession(modelId);
+      const session = new GraphRagSession(modelId);
+      // Re-apply the last-built graph so a freshly created session inherits it
+      // instead of starting empty behind an unchanged "graph built" UI state.
+      if (lastBuildRef.current !== null) {
+        session.buildGraph(lastBuildRef.current.source, lastBuildRef.current.mode);
+      }
+      sessionRef.current = session;
     }
     return sessionRef.current;
   }, [modelId]);
@@ -78,6 +88,7 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
   const buildGraph = useCallback(
     (source: string, mode: CorpusMode): void => {
       try {
+        lastBuildRef.current = { source, mode };
         const stats = getSession().buildGraph(source, mode);
         setGraphStats(stats);
         setError(null);

@@ -310,11 +310,29 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     indeterminate spinner on a cache hit (no byte totals).
   - Verified: `tsc` + `lint` clean; 100 tests green (+5 aggregator); `next build`
     succeeds.
-- Phase 1: browser smoke test of an actual model end-to-end (WebGPU + WASM
-  fallback); the unit suite covers negotiation/factory, not live inference. This
-  is the one path not yet exercised — everything upstream composes against the
-  `InferenceEngine` contract via stubs. `tsc`/tests/dev/build all pass, but no
-  model has been run in-page.
+- Live smoke test — first real model run in-browser (closes the Phase 1 gap):
+  - Ran `onnx-community/Qwen2.5-0.5B-Instruct` (q4) end-to-end via `next dev` in
+    a real browser: the WebGPU EP was negotiated and selected (q4 weights fetched,
+    not the WASM q8 path), weights downloaded off the main thread in the worker
+    with the U1 progress bar advancing on real bytes, tokens streamed, and the
+    profiler emitted measured figures (TTFT ~1.3–4.7 s, 2.7–7.0 tok/s, ~209 gen
+    steps; peak memory `n/a` — `measureUserAgentSpecificMemory` not exposed here).
+  - Bug found + fixed (`lib/useGraphRag.ts`): the initial graph is built once
+    behind a `didInit` component ref, while the hook's unmount cleanup nulls the
+    session (`sessionRef`) and disposes the worker. Under React StrictMode (dev)
+    the simulated remount left `didInit=true` with `sessionRef=null`, so the next
+    lazily-created session started EMPTY while the UI still read "5 nodes" —
+    retrieval resolved zero seeds and the model answered context-free ("no
+    information available"). Fix: session creation is now self-healing —
+    `useGraphRag` records the last-built `{source, mode}` in a ref and
+    `getSession` replays it into any freshly created session, so a recreated
+    session inherits the graph instead of starting empty. Verified in-browser: the
+    same query now resolves seeds (Ada Lovelace, Charles Babbage), assembles a
+    5-node / 96-tok context block, and the answer is grounded in the triples.
+  - No unit test added: the fix is React-hook-lifecycle-specific and the suite is
+    deliberately node-only (no jsdom/testing-library) — validated by the live run.
+    `tsc` + `lint` clean; 100 tests green.
+  - Still unexercised in-browser: the WASM fallback path (only WebGPU was live).
 - Phase 4 enhancements: graph visualization of the retrieved subgraph (worker-
   offloaded inference is now done — see A1 above).
 - Optional: embedding-based hybrid ranking over `GraphNode.embedding`; semantic
