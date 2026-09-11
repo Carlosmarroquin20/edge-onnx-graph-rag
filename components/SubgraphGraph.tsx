@@ -70,7 +70,8 @@ export function SubgraphGraph({
     hovered === null || e.source === hovered || e.target === hovered;
 
   return (
-    <div className="overflow-x-auto">
+    <div>
+      <div className="overflow-x-auto">
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="h-auto w-full"
@@ -221,6 +222,26 @@ export function SubgraphGraph({
           })}
         </g>
       </svg>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-neutral-500">
+        <span className="flex items-center gap-1.5">
+          <span
+            className="inline-block h-2.5 w-2.5 rounded-full border"
+            style={{ backgroundColor: PALETTE.seedFill, borderColor: PALETTE.seedStroke }}
+            aria-hidden="true"
+          />
+          seed
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="inline-block h-2.5 w-2.5 rounded-full border"
+            style={{ backgroundColor: PALETTE.nodeFill, borderColor: PALETTE.nodeStroke }}
+            aria-hidden="true"
+          />
+          entity
+        </span>
+        <span className="ml-auto text-neutral-600">hover a node to focus its neighborhood</span>
+      </div>
     </div>
   );
 }

@@ -35,6 +35,7 @@ import type {
 } from "@core/types";
 import { WorkerEngineClient } from "./workerEngineClient.js";
 import { validateModelId } from "./modelId.js";
+import { describeEngineFailure } from "./engineErrors.js";
 import type { CorpusMode } from "./sampleData.js";
 
 export interface GraphStats {
@@ -176,7 +177,8 @@ export class GraphRagSession {
       // Tear down the worker and clear the cached promise so a retry is possible.
       await engine.dispose();
       this.enginePromise = null;
-      throw error;
+      const raw = error instanceof Error ? error.message : String(error);
+      throw new Error(describeEngineFailure(raw, this.backend), { cause: error });
     }
     onStatus?.(`Ready on ${engine.backend.toUpperCase()}.`);
     return engine;
