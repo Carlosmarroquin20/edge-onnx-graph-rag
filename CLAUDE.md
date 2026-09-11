@@ -333,8 +333,29 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     deliberately node-only (no jsdom/testing-library) — validated by the live run.
     `tsc` + `lint` clean; 100 tests green.
   - Still unexercised in-browser: the WASM fallback path (only WebGPU was live).
-- Phase 4 enhancements: graph visualization of the retrieved subgraph (worker-
-  offloaded inference is now done — see A1 above).
+- CI hardening (merged via PR #1): the Windows-generated `package-lock.json`
+  records only win32 Rollup binaries as package nodes, so `npm ci` on the Linux
+  runner exited 0 without the Linux binary and vitest then failed to load
+  `@rollup/rollup-linux-x64-gnu` (npm/cli#4828). The install step now resolves
+  fresh against `package.json` on the runner. Follow-ups: commit a cross-platform
+  lockfile; bump the workflow off deprecated Node 20.
+- Subgraph visualization (Phase 4 exit criterion — closes the last Phase 4 gap):
+  - Plumbing: `PreparedQuery` now also carries the retrieved `SubgraphResult`;
+    `GraphRagSession.ask` surfaces it (plus seed node ids) on `AskOutcome`, so the
+    UI can draw what retrieval actually returned. Retrieval stays on the main
+    thread — nothing extra crosses the worker boundary.
+  - `components/SubgraphGraph.tsx`: dependency-free, deterministic
+    Fruchterman-Reingold layout (positions are a pure function of node/edge
+    identity — no randomness, reproducible) rendered as inline SVG: directed vs.
+    undirected relations with labels, nodes sized by relevance score, seed anchors
+    highlighted (emerald + ring), and a hover interaction highlighting a node's
+    incident edges/neighbors while dimming the rest. `!`-free per the core's
+    array-access convention (guarded index reads, not non-null assertions).
+  - `SubgraphPanel` renders the graph with seed badges above a collapsible
+    "context block sent to the model" (the prior text view, demoted to secondary).
+  - Verified in-browser (WebGPU, live model run): the Ada/Babbage subgraph draws
+    with both seeds highlighted, hover dimming works, and it composes with the
+    metrics readout. `tsc` + `lint` clean; 100 tests green.
 - Optional: embedding-based hybrid ranking over `GraphNode.embedding`; semantic
   seed resolution to complement label matching in `resolveSeedsByLabel`;
   per-token emission for exact (vs. decode-step) generated-token counts.

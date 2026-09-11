@@ -259,7 +259,9 @@ export function GraphRagConsole(): ReactElement {
         <Panel>
           <SubgraphPanel
             context={rag.outcome?.context ?? null}
+            subgraph={rag.outcome?.subgraph ?? null}
             seedLabels={rag.outcome?.seedLabels ?? []}
+            seedIds={rag.outcome?.seedIds ?? []}
           />
         </Panel>
 
