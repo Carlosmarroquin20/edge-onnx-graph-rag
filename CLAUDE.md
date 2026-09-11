@@ -391,6 +391,17 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
   - `vitest.config.ts` gained a `@core` → `src/core` resolve alias (mirrors the
     tsconfig path) so tests can import the core barrels as the app does.
   - `tsc` + `lint` clean; 109 tests green; `next build` succeeds.
+- UX polish (subgraph legend + actionable backend error):
+  - `SubgraphGraph` now renders a small legend below the graph (seed vs. entity
+    swatch + a "hover a node to focus its neighborhood" hint), so the emerald =
+    seed convention and the hover interaction are discoverable.
+  - `lib/engineErrors.ts` (`describeEngineFailure`, pure + unit-tested): translates
+    the factory's generic "No execution backend…" error into an actionable message
+    when the user *forced* WebGPU on a host without a compatible adapter ("switch
+    to Auto or WASM"); other failures pass through. Wired into
+    `GraphRagSession.createEngine` (preserving the original error as `cause`).
+  - Verified: legend renders below the graph (SVG 670×489, legend 8px under it);
+    `tsc` + `lint` clean; 113 tests green (+4 error-mapping).
 - Optional: embedding-based hybrid ranking over `GraphNode.embedding`; semantic
   seed resolution to complement label matching in `resolveSeedsByLabel`;
   per-token emission for exact (vs. decode-step) generated-token counts.
