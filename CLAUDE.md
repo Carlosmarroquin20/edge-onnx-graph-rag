@@ -375,6 +375,22 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     subgraph view renders identically (backend-agnostic).
   - `tsc` + `lint` clean; 100 tests green (worker/UI plumbing exercised in-browser,
     not unit-tested — the suite is node-only).
+- Polish pass (README / LICENSE / layout tests):
+  - `README.md` refreshed to current reality: highlights (backend selector,
+    subgraph viz, worker offload, live profiler), an updated architecture diagram,
+    a `lint` command, and a Status section stating 109 tests and both backends
+    exercised live in-browser (the old README still claimed live inference was the
+    one unrun item and cited 70 tests).
+  - Added an MIT `LICENSE` (holder: the repo's GitHub handle — swap for a legal
+    name if desired) and set `package.json` `"license": "MIT"`.
+  - Extracted the subgraph force-layout into `lib/subgraphLayout.ts` (pure,
+    dependency-free) and unit-tested it (`lib/subgraphLayout.test.ts`, +9):
+    determinism, single-node centering, in-bounds/finite coordinates, endpoint
+    separation, dangling-edge tolerance, and `radiusFor` interpolation.
+    `SubgraphGraph.tsx` now consumes it and holds only rendering.
+  - `vitest.config.ts` gained a `@core` → `src/core` resolve alias (mirrors the
+    tsconfig path) so tests can import the core barrels as the app does.
+  - `tsc` + `lint` clean; 109 tests green; `next build` succeeds.
 - Optional: embedding-based hybrid ranking over `GraphNode.embedding`; semantic
   seed resolution to complement label matching in `resolveSeedsByLabel`;
   per-token emission for exact (vs. decode-step) generated-token counts.

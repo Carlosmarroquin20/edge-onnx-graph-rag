@@ -8,6 +8,24 @@ inference; nothing leaves the browser.
 See [`CLAUDE.md`](CLAUDE.md) for the engineering ledger and [`ROADMAP.md`](ROADMAP.md)
 for the phase plan.
 
+## Highlights
+
+- **Runtime backend negotiation** — WebGPU (4-bit weights) with a graceful WASM
+  fallback (8-bit); each backend applies its own precision default. A UI selector
+  can pin **Auto / WebGPU / WASM** to compare them on the same device.
+- **In-memory knowledge graph** — adjacency-list store, k-hop / weighted-shortest-path
+  traversal, dependency-free entity extraction, and token-bounded context assembly.
+- **Worker-offloaded inference** — the engine, model load, and token decoding run
+  in a Web Worker; the main thread stays responsive and only builds the prompt
+  and renders streamed tokens.
+- **Live execution profiler** — measured TTFT, throughput, wall-clock, prompt/gen
+  counts, and (where the API is exposed) peak memory, aggregated per backend/model.
+- **Retrieved-subgraph visualization** — the neighborhood behind each answer is
+  drawn as an interactive graph (deterministic force layout, seeds highlighted,
+  neighborhood highlight on hover).
+- **Real model-download progress**, streamed answers, and cross-origin isolation
+  for WASM threads.
+
 ## Architecture
 
 ```
@@ -16,6 +34,8 @@ text / model output ─► extraction ─► GraphBuilder ─► GraphStore
         query ─► seed resolution ─► retrieveNeighborhood ─► assembleContext
                                                           │
                              promptTemplate ─► InferenceEngine ─► answer + metrics
+                                                          │
+                                            retrieved subgraph ─► visualization
 ```
 
 - **Engine** (`src/core/engine`) — runtime capability negotiation (WebGPU → WASM),
@@ -32,16 +52,19 @@ text / model output ─► extraction ─► GraphBuilder ─► GraphStore
   model load, and token decoding stay off the main thread; the main thread only
   builds the prompt (retrieval + assembly) and renders streamed tokens. The
   worker is fronted by `WorkerEngineClient`, which implements `InferenceEngine`
-  so the pipeline is agnostic to the thread boundary.
+  so the pipeline is agnostic to the thread boundary. The retrieved subgraph is
+  laid out by a pure, deterministic function (`lib/subgraphLayout.ts`) and drawn
+  as inline SVG (`components/SubgraphGraph.tsx`).
 
 ## Commands
 
 ```bash
 npm install
 npm run typecheck   # tsc --noEmit, strict
-npm run test        # Vitest unit suite (core; runs without a browser)
+npm run lint        # ESLint
+npm run test        # Vitest unit suite (DOM-free; runs without a browser)
 npm run dev         # Next.js dev server → http://localhost:3000
-npm run build       # production build (see caveat below)
+npm run build       # production build
 ```
 
 ## Running the UI
@@ -51,9 +74,11 @@ npm run dev
 ```
 
 Open the app, edit the knowledge source (triples or free text), click **Build
-graph**, enter a query, and **Ask**. The first ask downloads and caches the model
-weights in the browser, negotiates a backend, then streams the answer while the
-profiler reports TTFT, throughput, and (where available) peak memory.
+graph**, optionally pin an execution backend, enter a query, and **Ask**. The
+first ask downloads and caches the model weights in the browser, negotiates a
+backend, then streams the answer while the profiler reports TTFT, throughput, and
+(where available) peak memory. The subgraph that grounded the answer is drawn
+beside it.
 
 ### Cross-origin isolation
 
@@ -64,17 +89,17 @@ Without isolation the WASM backend falls back to single-threaded execution.
 
 ## Status
 
-The client-side core is complete and unit-tested (70 tests, strict type-check
-clean). `npm run dev` compiles and renders; `npm run build` succeeds (the page is
-~7 kB / ~95 kB First Load JS — the ONNX/Transformers.js runtime loads lazily in a
-separate chunk, never on first paint or during SSR).
+The client-side core is complete and unit-tested (**109 tests**, strict type-check
+and lint clean). End-to-end inference has been exercised in a real browser on
+**both backends**: WebGPU (4-bit) and the WASM fallback (8-bit) each load a live
+model, stream a grounded answer, and report measured profiler metrics.
 
-`next.config.mjs` flags `onnxruntime-web`'s pre-minified worker bundles as already
-minimized so Terser skips them (they use `import.meta`, which Terser rejects when
-re-minifying ESM assets as non-modules).
+`next build` succeeds; the ONNX/Transformers.js runtime loads lazily in a separate
+chunk (in the worker), never on first paint or during SSR. `next.config.mjs` flags
+`onnxruntime-web`'s pre-minified worker bundles as already minimized so Terser
+skips them (they use `import.meta`, which Terser rejects when re-minifying ESM
+assets as non-modules).
 
-One item remains:
+## License
 
-- **Live end-to-end inference** (a real model on WebGPU/WASM) must be exercised in
-  a browser; the unit suite covers everything up to the `InferenceEngine` contract,
-  and the build/dev server are verified, but a model has not yet been run in-page.
+MIT — see [`LICENSE`](LICENSE).
