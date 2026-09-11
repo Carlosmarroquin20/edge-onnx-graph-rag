@@ -26,6 +26,7 @@ import type {
 } from "../types/graph.js";
 import { GraphStore } from "../graph/GraphStore.js";
 import { retrieveNeighborhood } from "../graph/traversal.js";
+import { rerankBySimilarity } from "../graph/similarity.js";
 import {
   assembleContext,
   type AssembledContext,
@@ -60,6 +61,19 @@ export interface GraphRagOptions {
   readonly header?: string;
   /** Token estimator for budgeting; defaults to the char heuristic. */
   readonly estimateTokens?: TokenEstimator;
+  /**
+   * Optional dense embedding of the query. When provided, the retrieved
+   * neighborhood is re-ranked by blending structural proximity with the cosine
+   * similarity of each node's embedding to this vector, so context packing
+   * favors semantically-relevant nodes. Absent it, ranking is purely structural.
+   */
+  readonly queryEmbedding?: ReadonlyArray<number>;
+  /**
+   * Weight on the structural score during hybrid re-ranking, in `[0, 1]`; the
+   * semantic score takes the complement. Only applies when `queryEmbedding` is
+   * set. Defaults to a balanced blend.
+   */
+  readonly structuralWeight?: number;
   /** Generation parameters forwarded to the engine. */
   readonly generation?: GenerationOptions;
 }
@@ -178,13 +192,25 @@ export class GraphRagPipeline {
   prepare(query: string, options: GraphRagOptions = {}): PreparedQuery {
     const seeds = this.resolveSeeds(this.store, query);
 
-    const subgraph = retrieveNeighborhood(this.store, {
+    const structural = retrieveNeighborhood(this.store, {
       start: seeds,
       maxHops: options.maxHops ?? DEFAULT_MAX_HOPS,
       ...(options.maxNodes !== undefined ? { limit: options.maxNodes } : {}),
       ...(options.relations !== undefined ? { relations: options.relations } : {}),
       ...(options.direction !== undefined ? { direction: options.direction } : {}),
     });
+
+    // Hybrid re-ranking: when a query embedding is supplied, blend semantic
+    // similarity into the structural scores before context packing. A no-op
+    // otherwise, so purely-structural retrieval is unchanged.
+    const subgraph =
+      options.queryEmbedding !== undefined
+        ? rerankBySimilarity(structural, options.queryEmbedding, {
+            ...(options.structuralWeight !== undefined
+              ? { structuralWeight: options.structuralWeight }
+              : {}),
+          })
+        : structural;
 
     const context = assembleContext(subgraph, {
       tokenBudget: options.tokenBudget ?? DEFAULT_TOKEN_BUDGET,

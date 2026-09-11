@@ -402,7 +402,27 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     `GraphRagSession.createEngine` (preserving the original error as `cause`).
   - Verified: legend renders below the graph (SVG 670×489, legend 8px under it);
     `tsc` + `lint` clean; 113 tests green (+4 error-mapping).
-- Optional: embedding-based hybrid ranking over `GraphNode.embedding`; semantic
+- Hybrid retrieval — semantic re-ranking core (PR A of 2; dormant until the
+  embedder lands):
+  - `src/core/graph/similarity.ts` (pure, dependency-free): `cosineSimilarity`
+    (guards empty/mismatched/zero-magnitude → 0) and `rerankBySimilarity`, which
+    blends each node's structural score (min-max normalized to [0,1]) with the
+    cosine similarity of its embedding to a supplied query embedding
+    (`structuralWeight`-weighted convex combination; negatives clamped; nodes
+    without an embedding keep structural-only; a no-op when the query embedding is
+    empty or weight is 1). Exported from the graph barrel.
+  - `GraphRagPipeline.prepare` gained optional `queryEmbedding` + `structuralWeight`
+    in `GraphRagOptions`; when a query embedding is present it re-ranks the
+    retrieved neighborhood before context packing, otherwise retrieval stays
+    purely structural (identical behavior — the app does not yet pass embeddings).
+  - Tests: `similarity.test.ts` (+8) and two pipeline integration cases proving a
+    query embedding lifts a semantically-aligned neighbor above the structural
+    seed. `tsc` + `lint` clean; 123 tests green; `next build` succeeds.
+  - Next (PR B): a feature-extraction embedder in the worker, populate
+    `GraphNode.embedding` at graph-build time, embed the query in
+    `GraphRagSession.ask`, and enable the blend — then browser-verify.
+- Optional: embedding-based hybrid ranking over `GraphNode.embedding` (core landed
+  above; embedder integration pending); semantic
   seed resolution to complement label matching in `resolveSeedsByLabel`;
   per-token emission for exact (vs. decode-step) generated-token counts.
 - Tooling: optional type-aware ESLint (typescript-eslint `projectService`) for

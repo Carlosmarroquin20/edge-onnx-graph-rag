@@ -9,7 +9,7 @@ import {
 } from "./GraphRagPipeline.js";
 import { GraphBuilder } from "../graph/GraphBuilder.js";
 import { GraphStore } from "../graph/GraphStore.js";
-import { asNodeId } from "../graph/ids.js";
+import { asEdgeId, asNodeId } from "../graph/ids.js";
 import type {
   GenerationOptions,
   GenerationToken,
@@ -123,6 +123,67 @@ describe("GraphRagPipeline.prepare", () => {
     const prepared = pipeline.prepare("anything");
 
     expect(prepared.seeds.map(String)).toEqual(["g:n:1"]);
+  });
+});
+
+describe("GraphRagPipeline.prepare hybrid re-ranking", () => {
+  /** a—knows→b, where a is the seed but b is aligned with the query embedding. */
+  function buildEmbeddedStore(): GraphStore {
+    const store = new GraphStore();
+    store.addNode({
+      id: asNodeId("a"),
+      type: "entity",
+      label: "Alice",
+      properties: {},
+      embedding: [0, 1],
+    });
+    store.addNode({
+      id: asNodeId("b"),
+      type: "entity",
+      label: "Bob",
+      properties: {},
+      embedding: [1, 0],
+    });
+    store.addEdge({
+      id: asEdgeId("e"),
+      source: asNodeId("a"),
+      target: asNodeId("b"),
+      relation: "knows",
+      weight: 1,
+      directed: true,
+      properties: {},
+    });
+    return store;
+  }
+
+  const seedA: SeedResolver = () => [asNodeId("a")];
+
+  it("leaves scores purely structural when no query embedding is supplied", () => {
+    const pipeline = new GraphRagPipeline(new StubEngine("ok"), buildEmbeddedStore(), {
+      resolveSeeds: seedA,
+    });
+
+    const prepared = pipeline.prepare("q", { maxHops: 1 });
+
+    const a = prepared.subgraph.scores.get(asNodeId("a")) ?? 0;
+    const b = prepared.subgraph.scores.get(asNodeId("b")) ?? 0;
+    expect(a).toBeGreaterThan(b); // seed outranks its one-hop neighbor
+  });
+
+  it("lets a query embedding lift a semantically-aligned neighbor above the seed", () => {
+    const pipeline = new GraphRagPipeline(new StubEngine("ok"), buildEmbeddedStore(), {
+      resolveSeeds: seedA,
+    });
+
+    const prepared = pipeline.prepare("q", {
+      maxHops: 1,
+      queryEmbedding: [1, 0],
+      structuralWeight: 0.3,
+    });
+
+    const a = prepared.subgraph.scores.get(asNodeId("a")) ?? 0;
+    const b = prepared.subgraph.scores.get(asNodeId("b")) ?? 0;
+    expect(b).toBeGreaterThan(a); // semantic alignment overtakes structural proximity
   });
 });
 
