@@ -48,6 +48,18 @@ export class GraphStore {
     this.incoming.set(node.id, new Set());
   }
 
+  /**
+   * Attaches (or replaces) a node's dense embedding, used for hybrid semantic
+   * retrieval. Adjacency is unaffected. Throws `MISSING_NODE` if absent.
+   */
+  setNodeEmbedding(id: NodeId, embedding: ReadonlyArray<number>): void {
+    const node = this.nodesById.get(id);
+    if (node === undefined) {
+      throw new GraphError("MISSING_NODE", `Node "${id}" does not exist.`);
+    }
+    this.nodesById.set(id, { ...node, embedding });
+  }
+
   hasNode(id: NodeId): boolean {
     return this.nodesById.has(id);
   }

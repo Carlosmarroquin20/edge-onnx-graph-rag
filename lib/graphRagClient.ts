@@ -33,7 +33,7 @@ import type {
   ProgressListener,
   SubgraphResult,
 } from "@core/types";
-import { WorkerEngineClient } from "./workerEngineClient.js";
+import { WorkerEngineClient, type Embedder } from "./workerEngineClient.js";
 import { validateModelId } from "./modelId.js";
 import { describeEngineFailure } from "./engineErrors.js";
 import type { CorpusMode } from "./sampleData.js";
@@ -91,10 +91,14 @@ export class GraphRagSession {
   /** Label→id index over `store`, rebuilt only when the graph changes. */
   private labelIndex: ReadonlyMap<string, NodeId> = new Map();
   private readonly aggregator = new MetricsAggregator();
-  private enginePromise: Promise<InferenceEngine> | null = null;
+  private enginePromise: Promise<InferenceEngine & Embedder> | null = null;
   private busy = false;
   private modelId: string;
   private backend: BackendChoice;
+  /** When true, retrieval blends semantic similarity into structural ranking. */
+  private semanticRerank = true;
+  /** Whether the current graph's node embeddings have been populated. */
+  private nodesEmbedded = false;
 
   constructor(modelId: string, backend: BackendChoice = "auto") {
     this.modelId = requireValidModelId(modelId);
@@ -108,7 +112,22 @@ export class GraphRagSession {
     this.store = builder.graph;
     // Index built once here; reused across every subsequent query.
     this.labelIndex = buildLabelIndex(this.store);
+    // A new graph needs fresh node embeddings before semantic re-ranking applies.
+    this.nodesEmbedded = false;
     return { nodeCount: this.store.nodeCount, edgeCount: this.store.edgeCount };
+  }
+
+  get semanticRerankEnabled(): boolean {
+    return this.semanticRerank;
+  }
+
+  /**
+   * Toggles hybrid semantic re-ranking. Cheap — the embedder shares the existing
+   * worker, so no engine teardown is needed; the next turn simply blends (or
+   * skips) the semantic signal.
+   */
+  setSemanticRerank(enabled: boolean): void {
+    this.semanticRerank = enabled;
   }
 
   get graphStats(): GraphStats {
@@ -153,7 +172,7 @@ export class GraphRagSession {
   async ensureEngine(
     onStatus?: (status: string) => void,
     onProgress?: ProgressListener,
-  ): Promise<InferenceEngine> {
+  ): Promise<InferenceEngine & Embedder> {
     if (this.enginePromise === null) {
       this.enginePromise = this.createEngine(onStatus, onProgress);
     }
@@ -163,7 +182,7 @@ export class GraphRagSession {
   private async createEngine(
     onStatus?: (status: string) => void,
     onProgress?: ProgressListener,
-  ): Promise<InferenceEngine> {
+  ): Promise<InferenceEngine & Embedder> {
     onStatus?.("Loading model in a worker…");
     // No dtype hint: each backend applies its own default (q4 on WebGPU, q8 on
     // WASM). The preference forces the backend when the user pinned one.
@@ -211,9 +230,19 @@ export class GraphRagSession {
         resolveSeeds: (_store, text) => resolveSeedsFromIndex(this.labelIndex, text),
       });
 
+      // Best-effort semantic re-ranking: embed the graph (once) and the query,
+      // then let the pipeline blend similarity into the structural ranking. Any
+      // failure degrades cleanly to purely-structural retrieval.
+      const queryEmbedding = await this.computeQueryEmbedding(
+        engine,
+        query,
+        handlers.onStatus,
+      );
+
       const baseOptions = handlers.options ?? {};
       const runOptions: GraphRagOptions = {
         ...baseOptions,
+        ...(queryEmbedding !== undefined ? { queryEmbedding } : {}),
         generation: {
           ...baseOptions.generation,
           ...(handlers.signal ? { signal: handlers.signal } : {}),
@@ -248,6 +277,56 @@ export class GraphRagSession {
     } finally {
       this.busy = false;
     }
+  }
+
+  /**
+   * Embeds the query for hybrid re-ranking, ensuring the graph's node embeddings
+   * exist first. Returns `undefined` (structural-only) when re-ranking is
+   * disabled, the graph is empty, or embedding fails — the enhancement never
+   * blocks a turn.
+   */
+  private async computeQueryEmbedding(
+    engine: Embedder,
+    query: string,
+    onStatus?: (status: string) => void,
+  ): Promise<number[] | undefined> {
+    if (!this.semanticRerank) {
+      return undefined;
+    }
+    try {
+      await this.ensureNodeEmbeddings(engine, onStatus);
+      onStatus?.("Embedding query…");
+      const [vector] = await engine.embed([query]);
+      return vector;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      onStatus?.(`Semantic re-ranking unavailable (${reason}); using structural retrieval.`);
+      return undefined;
+    }
+  }
+
+  /** Populates every node's embedding from its label, once per graph. */
+  private async ensureNodeEmbeddings(
+    engine: Embedder,
+    onStatus?: (status: string) => void,
+  ): Promise<void> {
+    if (this.nodesEmbedded) {
+      return;
+    }
+    const nodes = [...this.store.nodes()];
+    if (nodes.length === 0) {
+      this.nodesEmbedded = true;
+      return;
+    }
+    onStatus?.("Embedding knowledge graph…");
+    const vectors = await engine.embed(nodes.map((node) => node.label));
+    nodes.forEach((node, index) => {
+      const vector = vectors[index];
+      if (vector !== undefined) {
+        this.store.setNodeEmbedding(node.id, vector);
+      }
+    });
+    this.nodesEmbedded = true;
   }
 
   aggregates(): AggregatedMetrics[] {

@@ -25,6 +25,21 @@ import type {
   WorkerResponse,
 } from "./workerProtocol.js";
 
+/**
+ * Produces dense embeddings for text. Implemented by {@link WorkerEngineClient}
+ * alongside {@link InferenceEngine}, so a single worker serves both generation
+ * and the feature-extraction model used for semantic re-ranking.
+ */
+export interface Embedder {
+  /** Returns one dense vector per input text, in order. Empty in → empty out. */
+  embed(texts: readonly string[]): Promise<number[][]>;
+}
+
+interface PendingEmbed {
+  readonly resolve: (vectors: number[][]) => void;
+  readonly reject: (reason: unknown) => void;
+}
+
 function toSerializable(options: GenerationOptions): SerializableGenerationOptions {
   const serializable: {
     maxNewTokens?: number;
@@ -47,9 +62,10 @@ function toSerializable(options: GenerationOptions): SerializableGenerationOptio
   return serializable;
 }
 
-export class WorkerEngineClient implements InferenceEngine {
+export class WorkerEngineClient implements InferenceEngine, Embedder {
   private readonly worker: Worker;
   private readonly streams = new Map<number, PushPullStream<GenerationToken>>();
+  private readonly embedRequests = new Map<number, PendingEmbed>();
   private initPromise: Promise<void> | null = null;
   private initResolve: (() => void) | null = null;
   private initReject: ((reason: unknown) => void) | null = null;
@@ -119,6 +135,18 @@ export class WorkerEngineClient implements InferenceEngine {
     return this.drain(requestId, stream, signal, onAbort);
   }
 
+  embed(texts: readonly string[]): Promise<number[][]> {
+    if (texts.length === 0) {
+      return Promise.resolve([]);
+    }
+    const requestId = this.nextRequestId;
+    this.nextRequestId += 1;
+    return new Promise<number[][]>((resolve, reject) => {
+      this.embedRequests.set(requestId, { resolve, reject });
+      this.post({ type: "embed", requestId, texts });
+    });
+  }
+
   async complete(
     prompt: string,
     options: GenerationOptions = {},
@@ -143,6 +171,10 @@ export class WorkerEngineClient implements InferenceEngine {
       stream.close();
     }
     this.streams.clear();
+    for (const pending of this.embedRequests.values()) {
+      pending.reject(new Error("Worker disposed before embedding completed."));
+    }
+    this.embedRequests.clear();
   }
 
   /** Yields the request's tokens, cleaning up listeners and routing on exit. */
@@ -184,6 +216,18 @@ export class WorkerEngineClient implements InferenceEngine {
       case "error":
         this.streams.get(message.requestId)?.fail(new Error(message.message));
         break;
+      case "embedded": {
+        const pending = this.embedRequests.get(message.requestId);
+        this.embedRequests.delete(message.requestId);
+        pending?.resolve(message.vectors);
+        break;
+      }
+      case "embed-error": {
+        const pending = this.embedRequests.get(message.requestId);
+        this.embedRequests.delete(message.requestId);
+        pending?.reject(new Error(message.message));
+        break;
+      }
       default:
         break;
     }

@@ -197,6 +197,22 @@ export function GraphRagConsole(): ReactElement {
             <option value="webgpu">WebGPU (force)</option>
             <option value="wasm">WASM (force)</option>
           </select>
+          <label className="mt-3 flex cursor-pointer items-start gap-2 text-[11px] text-neutral-400">
+            <input
+              type="checkbox"
+              checked={rag.semanticRerank}
+              onChange={(e) => rag.setSemanticRerank(e.target.checked)}
+              disabled={isBusy}
+              className="mt-0.5 cursor-pointer accent-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <span>
+              Semantic re-ranking
+              <span className="block text-neutral-600">
+                Blend embedding similarity into retrieval (loads a small
+                embedding model on first ask).
+              </span>
+            </span>
+          </label>
         </Panel>
 
         <Panel>
