@@ -17,6 +17,12 @@ export {
   type TokenEstimator,
 } from "./contextAssembler.js";
 
+export {
+  cosineSimilarity,
+  rerankBySimilarity,
+  type RerankOptions,
+} from "./similarity.js";
+
 export { asEdgeId, asNodeId, IdFactory } from "./ids.js";
 
 export {
