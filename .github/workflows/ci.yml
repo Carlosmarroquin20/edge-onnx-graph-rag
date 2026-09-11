@@ -22,7 +22,11 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # `npm ci` installs the platform-specific optional deps recorded in the
+        # lockfile. A lockfile generated on another OS omits this runner's native
+        # binaries (e.g. Rollup's `@rollup/rollup-linux-x64-gnu`) — npm/cli#4828 —
+        # so fall back to a fresh resolve when the pinned install can't satisfy it.
+        run: npm ci || (rm -rf node_modules package-lock.json && npm install --no-audit --no-fund)
 
       - name: Type-check (strict)
         run: npm run typecheck
