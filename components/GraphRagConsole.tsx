@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, ReactElement, ReactNode } from "react";
 
 import { useGraphRag } from "../lib/useGraphRag.js";
+import type { BackendChoice } from "../lib/graphRagClient.js";
 import { validateModelId } from "../lib/modelId.js";
 import type { DownloadState } from "../lib/loadProgress.js";
 import {
@@ -178,6 +179,24 @@ export function GraphRagConsole(): ReactElement {
           ) : (
             <p className="mt-2 text-[11px] text-red-400">{modelIdCheck.reason}</p>
           )}
+          <label
+            htmlFor="backend-select"
+            className="mt-3 mb-1 block text-[11px] text-neutral-500"
+          >
+            Execution backend
+          </label>
+          <select
+            id="backend-select"
+            aria-label="Execution backend"
+            value={rag.backend}
+            onChange={(e) => void rag.setBackend(e.target.value as BackendChoice)}
+            disabled={isBusy}
+            className={`${FIELD} cursor-pointer disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            <option value="auto">Auto — WebGPU, fall back to WASM</option>
+            <option value="webgpu">WebGPU (force)</option>
+            <option value="wasm">WASM (force)</option>
+          </select>
         </Panel>
 
         <Panel>

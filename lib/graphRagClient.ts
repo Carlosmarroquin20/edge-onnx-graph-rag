@@ -25,6 +25,7 @@ import {
 import { MetricsAggregator, profileGeneration } from "@core/profiler";
 import type {
   AggregatedMetrics,
+  BackendKind,
   ExecutionMetrics,
   InferenceEngine,
   ModelLoadProgress,
@@ -39,6 +40,25 @@ import type { CorpusMode } from "./sampleData.js";
 export interface GraphStats {
   readonly nodeCount: number;
   readonly edgeCount: number;
+}
+
+/**
+ * User-facing backend selection. `auto` negotiates WebGPU→WASM; the explicit
+ * choices force a single backend (forcing `webgpu` on a host without it surfaces
+ * as an init error rather than a silent fallback).
+ */
+export type BackendChoice = "auto" | "webgpu" | "wasm";
+
+/** Maps a user choice to a factory preference list; `auto` uses the default. */
+function preferenceFor(choice: BackendChoice): readonly BackendKind[] | undefined {
+  switch (choice) {
+    case "webgpu":
+      return ["webgpu"];
+    case "wasm":
+      return ["wasm"];
+    case "auto":
+      return undefined;
+  }
 }
 
 export interface AskHandlers {
@@ -73,11 +93,11 @@ export class GraphRagSession {
   private enginePromise: Promise<InferenceEngine> | null = null;
   private busy = false;
   private modelId: string;
-  private readonly dtype: "fp32" | "fp16" | "q8" | "q4";
+  private backend: BackendChoice;
 
-  constructor(modelId: string, dtype: "fp32" | "fp16" | "q8" | "q4" = "q4") {
+  constructor(modelId: string, backend: BackendChoice = "auto") {
     this.modelId = requireValidModelId(modelId);
-    this.dtype = dtype;
+    this.backend = backend;
   }
 
   /** Rebuilds the graph from source text. Replaces any prior graph. */
@@ -107,6 +127,22 @@ export class GraphRagSession {
     this.modelId = next;
   }
 
+  get backendChoice(): BackendChoice {
+    return this.backend;
+  }
+
+  /**
+   * Pins the execution backend, discarding any engine bound to the previous
+   * choice so the next turn re-negotiates. `auto` restores WebGPU→WASM fallback.
+   */
+  async setBackend(choice: BackendChoice): Promise<void> {
+    if (choice === this.backend) {
+      return;
+    }
+    await this.disposeEngine();
+    this.backend = choice;
+  }
+
   /**
    * Spins up the inference worker, which loads the Transformers.js runtime,
    * negotiates a backend, and warms the model off the main thread. Subsequent
@@ -128,10 +164,12 @@ export class GraphRagSession {
     onProgress?: ProgressListener,
   ): Promise<InferenceEngine> {
     onStatus?.("Loading model in a worker…");
-    const engine = new WorkerEngineClient({
-      modelId: this.modelId,
-      dtype: this.dtype,
-    });
+    // No dtype hint: each backend applies its own default (q4 on WebGPU, q8 on
+    // WASM). The preference forces the backend when the user pinned one.
+    const engine = new WorkerEngineClient(
+      { modelId: this.modelId },
+      preferenceFor(this.backend),
+    );
     try {
       await engine.init(onProgress);
     } catch (error) {

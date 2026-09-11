@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   GraphRagSession,
   type AskOutcome,
+  type BackendChoice,
   type GraphStats,
 } from "./graphRagClient.js";
 import {
@@ -34,9 +35,11 @@ export interface UseGraphRag {
   readonly download: DownloadState;
   readonly outcome: AskOutcome | null;
   readonly aggregates: ReadonlyArray<AggregatedMetrics>;
+  readonly backend: BackendChoice;
   readonly buildGraph: (source: string, mode: CorpusMode) => void;
   readonly ask: (query: string) => Promise<void>;
   readonly setModel: (modelId: string) => Promise<void>;
+  readonly setBackend: (choice: BackendChoice) => Promise<void>;
   readonly cancel: () => void;
 }
 
@@ -51,6 +54,8 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
   // a recreated session (e.g. after a StrictMode remount disposes the previous
   // one) is never silently empty while the UI still shows the built graph.
   const lastBuildRef = useRef<{ source: string; mode: CorpusMode } | null>(null);
+  // Chosen backend, likewise replayed into any freshly created session.
+  const backendRef = useRef<BackendChoice>("auto");
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [status, setStatus] = useState<string>("");
@@ -63,10 +68,11 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
   const [outcome, setOutcome] = useState<AskOutcome | null>(null);
   const [aggregates, setAggregates] = useState<ReadonlyArray<AggregatedMetrics>>([]);
   const [download, setDownload] = useState<DownloadState>(IDLE_DOWNLOAD);
+  const [backend, setBackendState] = useState<BackendChoice>("auto");
 
   const getSession = useCallback((): GraphRagSession => {
     if (sessionRef.current === null) {
-      const session = new GraphRagSession(modelId);
+      const session = new GraphRagSession(modelId, backendRef.current);
       // Re-apply the last-built graph so a freshly created session inherits it
       // instead of starting empty behind an unchanged "graph built" UI state.
       if (lastBuildRef.current !== null) {
@@ -110,6 +116,20 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
         await getSession().setModel(id);
         setError(null);
         setStatus(`Model set to ${id}.`);
+      } catch (caught) {
+        setError(messageOf(caught));
+      }
+    },
+    [getSession],
+  );
+
+  const setBackend = useCallback(
+    async (choice: BackendChoice): Promise<void> => {
+      backendRef.current = choice;
+      setBackendState(choice);
+      try {
+        await getSession().setBackend(choice);
+        setError(null);
       } catch (caught) {
         setError(messageOf(caught));
       }
@@ -175,9 +195,11 @@ export function useGraphRag(modelId: string = DEFAULT_MODEL_ID): UseGraphRag {
     download,
     outcome,
     aggregates,
+    backend,
     buildGraph,
     ask,
     setModel,
+    setBackend,
     cancel,
   };
 }
