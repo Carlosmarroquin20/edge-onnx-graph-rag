@@ -14,6 +14,7 @@ import {
   estimateTokensByChars,
   extractByCooccurrence,
   extractTriples,
+  resolveSeedsBySimilarity,
 } from "@core/graph";
 import type { AssembledContext } from "@core/graph";
 import {
@@ -225,10 +226,6 @@ export class GraphRagSession {
     this.busy = true;
     try {
       const engine = await this.ensureEngine(handlers.onStatus, handlers.onProgress);
-      const pipeline = new GraphRagPipeline(engine, this.store, {
-        // Reuse the cached index instead of rebuilding it per query.
-        resolveSeeds: (_store, text) => resolveSeedsFromIndex(this.labelIndex, text),
-      });
 
       // Best-effort semantic re-ranking: embed the graph (once) and the query,
       // then let the pipeline blend similarity into the structural ranking. Any
@@ -238,6 +235,10 @@ export class GraphRagSession {
         query,
         handlers.onStatus,
       );
+
+      const pipeline = new GraphRagPipeline(engine, this.store, {
+        resolveSeeds: (_store, text) => this.resolveSeeds(text, queryEmbedding),
+      });
 
       const baseOptions = handlers.options ?? {};
       const runOptions: GraphRagOptions = {
@@ -277,6 +278,23 @@ export class GraphRagSession {
     } finally {
       this.busy = false;
     }
+  }
+
+  /**
+   * Resolves the seed nodes that anchor retrieval. Exact label matching first;
+   * when the query names no graph-resident entity (a description rather than a
+   * proper noun) and a query embedding is available, falls back to the nodes most
+   * semantically similar to the query, so descriptive questions still retrieve.
+   */
+  private resolveSeeds(
+    query: string,
+    queryEmbedding: number[] | undefined,
+  ): ReadonlyArray<NodeId> {
+    const labelSeeds = resolveSeedsFromIndex(this.labelIndex, query);
+    if (labelSeeds.length > 0 || queryEmbedding === undefined) {
+      return labelSeeds;
+    }
+    return resolveSeedsBySimilarity([...this.store.nodes()], queryEmbedding);
   }
 
   /**

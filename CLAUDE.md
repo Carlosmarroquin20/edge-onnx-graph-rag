@@ -442,9 +442,23 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     embedder loaded and embedded nodes + query), the pipeline blended the scores,
     and a grounded answer streamed to completion. `GraphStore.setNodeEmbedding`
     unit-tested (+2). `tsc` + `lint` clean; 125 tests green; `next build` succeeds.
-- Optional (remaining): semantic
-  seed resolution to complement label matching in `resolveSeedsByLabel`;
-  per-token emission for exact (vs. decode-step) generated-token counts.
+- Semantic seed resolution (completes hybrid retrieval — anchoring, not just
+  re-ranking):
+  - `resolveSeedsBySimilarity` (`src/core/graph/similarity.ts`, pure + unit-tested,
+    +5): ranks embedded nodes by cosine similarity to the query embedding, keeps
+    those above `minScore` (default 0.25), caps at `topK` (default 3); skips
+    unembedded nodes; empty query embedding → no seeds. Exported from the barrel.
+  - `GraphRagSession.resolveSeeds`: exact label match first, falling back to
+    semantic similarity only when the query names no graph-resident entity and a
+    query embedding is available (reuses the vector already computed for
+    re-ranking; `ask` builds the pipeline after embedding so the resolver captures
+    it). Label matches always win — the fallback is precision-preserving.
+  - Verified in-browser: "who built the calculating machine?" (no proper noun →
+    zero label seeds, previously context-free) resolved seeds **Mechanical
+    Computer / Analytical Engine** by similarity and answered **"Charles Babbage"**,
+    correctly grounded. `tsc` + `lint` clean; 130 tests green; `next build` succeeds.
+- Optional (remaining): per-token emission for exact (vs. decode-step)
+  generated-token counts.
 - Tooling: optional type-aware ESLint (typescript-eslint `projectService`) for
   deeper rules; the current config is non-type-checked for speed.
 

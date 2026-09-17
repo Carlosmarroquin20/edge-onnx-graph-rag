@@ -20,7 +20,9 @@ export {
 export {
   cosineSimilarity,
   rerankBySimilarity,
+  resolveSeedsBySimilarity,
   type RerankOptions,
+  type SemanticSeedOptions,
 } from "./similarity.js";
 
 export { asEdgeId, asNodeId, IdFactory } from "./ids.js";

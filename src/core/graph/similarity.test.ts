@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { GraphNode, SubgraphResult } from "../types/graph.js";
 import { asNodeId } from "./ids.js";
-import { cosineSimilarity, rerankBySimilarity } from "./similarity.js";
+import {
+  cosineSimilarity,
+  rerankBySimilarity,
+  resolveSeedsBySimilarity,
+} from "./similarity.js";
 
 function node(id: string, embedding?: ReadonlyArray<number>): GraphNode {
   return {
@@ -108,5 +112,35 @@ describe("rerankBySimilarity", () => {
     // Uniform structural -> both normalized to 1. a: 0.5*1 + 0.5*max(0,-1)=0.5; b: structural-only 1.
     expect(reranked.scores.get(asNodeId("a"))).toBeCloseTo(0.5);
     expect(reranked.scores.get(asNodeId("b"))).toBeCloseTo(1);
+  });
+});
+
+describe("resolveSeedsBySimilarity", () => {
+  it("returns no seeds for an empty query embedding", () => {
+    expect(resolveSeedsBySimilarity([node("a", [1, 0])], [])).toEqual([]);
+  });
+
+  it("ranks embedded nodes by similarity and caps at topK", () => {
+    const nodes = [node("a", [1, 0]), node("b", [0.8, 0.2]), node("c", [0, 1])];
+    const seeds = resolveSeedsBySimilarity(nodes, [1, 0], { topK: 2, minScore: 0 });
+    expect(seeds.map(String)).toEqual(["a", "b"]);
+  });
+
+  it("filters out nodes below minScore", () => {
+    const nodes = [node("a", [1, 0]), node("c", [0, 1])];
+    // c is orthogonal (score 0) -> excluded at the default threshold.
+    const seeds = resolveSeedsBySimilarity(nodes, [1, 0]);
+    expect(seeds.map(String)).toEqual(["a"]);
+  });
+
+  it("skips nodes without an embedding", () => {
+    const nodes = [node("a"), node("b", [1, 0])];
+    const seeds = resolveSeedsBySimilarity(nodes, [1, 0], { minScore: 0 });
+    expect(seeds.map(String)).toEqual(["b"]);
+  });
+
+  it("returns nothing when no node clears the threshold", () => {
+    const nodes = [node("a", [0, 1]), node("b", [0, 1])];
+    expect(resolveSeedsBySimilarity(nodes, [1, 0], { minScore: 0.5 })).toEqual([]);
   });
 });
