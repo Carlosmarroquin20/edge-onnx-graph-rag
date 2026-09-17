@@ -57,6 +57,14 @@ export interface GenerationToken {
   readonly index: number;
   /** True for the terminal step (EOS, cancellation, or `maxNewTokens` reached). */
   readonly isLast: boolean;
+  /**
+   * Exact count of model tokens generated in this run, excluding the prompt.
+   * Present only on the terminal delta (`isLast`) and only when the backend can
+   * count decode steps directly; consumers should fall back to the emitted-delta
+   * count when it is absent. Distinct from `index`, which counts text deltas —
+   * fewer than the tokens they span when multi-token code points are buffered.
+   */
+  readonly generatedTokenCount?: number;
 }
 
 /** Terminal result of a completed generation, including profiler output. */

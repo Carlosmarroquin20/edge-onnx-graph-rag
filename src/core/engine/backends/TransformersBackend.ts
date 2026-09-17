@@ -60,12 +60,24 @@ function buildToken(
   delta: PendingDelta,
   index: number,
   isLast: boolean,
+  generatedTokenCount?: number,
 ): GenerationToken {
-  // Construct conditionally: `exactOptionalPropertyTypes` forbids an explicit
-  // `tokenId: undefined`.
-  return delta.tokenId === undefined
-    ? { text: delta.text, index, isLast }
-    : { text: delta.text, tokenId: delta.tokenId, index, isLast };
+  // Construct conditionally: `exactOptionalPropertyTypes` forbids explicit
+  // `undefined` on optional properties.
+  const token: {
+    text: string;
+    tokenId?: number;
+    index: number;
+    isLast: boolean;
+    generatedTokenCount?: number;
+  } = { text: delta.text, index, isLast };
+  if (delta.tokenId !== undefined) {
+    token.tokenId = delta.tokenId;
+  }
+  if (generatedTokenCount !== undefined) {
+    token.generatedTokenCount = generatedTokenCount;
+  }
+  return token;
 }
 
 export abstract class TransformersBackend implements InferenceEngine {
@@ -162,12 +174,18 @@ export abstract class TransformersBackend implements InferenceEngine {
     let index = 0;
     let pending: PendingDelta | null = null;
     let lastTokenId: number | undefined;
+    // Exact count of generated tokens (decode steps), independent of how many
+    // text deltas the streamer emits. `skip_prompt` excludes the prompt.
+    let generatedTokenCount = 0;
 
     const flushPending = (isLast: boolean): void => {
       if (pending === null) {
         return;
       }
-      stream.push(buildToken(pending, index, isLast));
+      // Attach the exact token count only to the terminal delta.
+      stream.push(
+        buildToken(pending, index, isLast, isLast ? generatedTokenCount : undefined),
+      );
       index += 1;
       pending = null;
     };
@@ -175,6 +193,7 @@ export abstract class TransformersBackend implements InferenceEngine {
     const streamer = new TextStreamer(pipe.tokenizer, {
       skip_prompt: true,
       token_callback_function: (ids: bigint[]): void => {
+        generatedTokenCount += ids.length;
         const last = ids.at(-1);
         if (last !== undefined) {
           lastTokenId = Number(last);

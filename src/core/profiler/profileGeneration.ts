@@ -3,7 +3,9 @@
  *
  * Wraps a token stream and, as a pass-through, records a single-run
  * {@link ExecutionMetrics}: time-to-first-token, wall-clock, decode throughput,
- * emitted-step count, and (where the host exposes it) peak memory. The wrapped
+ * generated-token count (exact when the backend reports it on the terminal
+ * delta, else the emitted-delta count), and (where the host exposes it) peak
+ * memory. The wrapped
  * stream yields the original tokens unchanged, so instrumentation adds only a
  * clock read per step; the streaming `generate()` path carries zero profiling
  * overhead unless explicitly wrapped here.
@@ -88,7 +90,10 @@ export function profileGeneration(
     const start = clock();
     let timeToFirstTokenMs = 0;
     let isFirst = true;
-    let generatedTokenCount = 0;
+    let emittedDeltas = 0;
+    // Exact token count reported by the backend on the terminal delta, when
+    // available; falls back to the emitted-delta count otherwise.
+    let exactTokenCount: number | undefined;
 
     try {
       for await (const token of source) {
@@ -96,7 +101,10 @@ export function profileGeneration(
           timeToFirstTokenMs = clock() - start;
           isFirst = false;
         }
-        generatedTokenCount += 1;
+        emittedDeltas += 1;
+        if (token.generatedTokenCount !== undefined) {
+          exactTokenCount = token.generatedTokenCount;
+        }
         yield token;
       }
     } finally {
@@ -104,6 +112,7 @@ export function profileGeneration(
       const peakMemoryBytes = await sampleMemory();
       const decodeSeconds =
         Math.max(wallClockMs - timeToFirstTokenMs, Number.EPSILON) / 1000;
+      const generatedTokenCount = exactTokenCount ?? emittedDeltas;
       resolveMetrics?.({
         backend: options.backend,
         modelId: options.modelId,

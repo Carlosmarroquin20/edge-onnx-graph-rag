@@ -99,7 +99,7 @@ export function MetricsPanel({
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Stat label="Wall clock" value={ms(latest.wallClockMs)} />
             <Stat label="Prompt tokens" value={`${latest.promptTokenCount}`} />
-            <Stat label="Gen steps" value={`${latest.generatedTokenCount}`} />
+            <Stat label="Gen tokens" value={`${latest.generatedTokenCount}`} />
             <Stat label="Peak memory" value={memory(latest.peakMemoryBytes)} />
           </div>
         </>
