@@ -12,7 +12,7 @@
  * module is fully unit-testable without a model.
  */
 
-import type { NodeId, SubgraphResult } from "../types/graph.js";
+import type { GraphNode, NodeId, SubgraphResult } from "../types/graph.js";
 
 /**
  * Cosine similarity of two dense vectors, in `[-1, 1]`. Returns `0` when either
@@ -108,4 +108,50 @@ function clamp01(value: number): number {
     return DEFAULT_STRUCTURAL_WEIGHT;
   }
   return Math.min(1, Math.max(0, value));
+}
+
+export interface SemanticSeedOptions {
+  /** Maximum seeds to return, highest similarity first. Defaults to `3`. */
+  readonly topK?: number;
+  /**
+   * Minimum cosine similarity a node must reach to anchor retrieval, in
+   * `[-1, 1]`. Guards against anchoring on unrelated nodes when the query has no
+   * semantic match in the graph. Defaults to `0.25`.
+   */
+  readonly minScore?: number;
+}
+
+const DEFAULT_SEED_TOP_K = 3;
+const DEFAULT_SEED_MIN_SCORE = 0.25;
+
+/**
+ * Selects seed nodes by semantic similarity to the query embedding: the highest-
+ * scoring embedded nodes above `minScore`, capped at `topK`. Complements exact
+ * label matching — a query with no graph-resident proper noun (e.g. a
+ * description rather than a name) can still anchor retrieval by meaning. Nodes
+ * without an embedding are skipped; an empty query embedding yields no seeds.
+ */
+export function resolveSeedsBySimilarity(
+  nodes: ReadonlyArray<GraphNode>,
+  queryEmbedding: ReadonlyArray<number>,
+  options: SemanticSeedOptions = {},
+): NodeId[] {
+  if (queryEmbedding.length === 0) {
+    return [];
+  }
+  const topK = Math.max(0, options.topK ?? DEFAULT_SEED_TOP_K);
+  const minScore = options.minScore ?? DEFAULT_SEED_MIN_SCORE;
+
+  const scored: Array<{ readonly id: NodeId; readonly score: number }> = [];
+  for (const node of nodes) {
+    if (!isValidEmbedding(node.embedding)) {
+      continue;
+    }
+    const score = cosineSimilarity(queryEmbedding, node.embedding);
+    if (score >= minScore) {
+      scored.push({ id: node.id, score });
+    }
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, topK).map((entry) => entry.id);
 }
