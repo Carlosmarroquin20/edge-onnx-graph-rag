@@ -457,8 +457,28 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     zero label seeds, previously context-free) resolved seeds **Mechanical
     Computer / Analytical Engine** by similarity and answered **"Charles Babbage"**,
     correctly grounded. `tsc` + `lint` clean; 130 tests green; `next build` succeeds.
-- Optional (remaining): per-token emission for exact (vs. decode-step)
-  generated-token counts.
+- Exact generated-token count (metric honesty):
+  - `generatedTokenCount` was the emitted-delta count (text flushes), which
+    undercounts real tokens because a byte-level streamer buffers partial code
+    points and text-free steps (e.g. EOS) emit no delta. Now the backend counts
+    decode steps directly: `TransformersBackend` sums `token_callback_function`
+    ids (`skip_prompt` excludes the prompt) and attaches the exact total to the
+    terminal `GenerationToken` via a new optional `generatedTokenCount` field.
+  - `profileGeneration` reports that exact count (and derives throughput from it)
+    when the terminal delta carries it, falling back to the emitted-delta count
+    for stubs/backends that do not — so `tokensPerSecond` is now over real tokens.
+    The field crosses the worker boundary unchanged (plain cloneable object), so
+    the streaming UI path benefits too.
+  - UI: MetricsPanel stat relabeled "Gen steps" → "Gen tokens".
+  - Verified in-browser: a capped run reported **256** gen tokens — exactly
+    `DEFAULT_MAX_NEW_TOKENS` — confirming true token counting (delta counting
+    reads fewer). `profileGeneration.test.ts` +1 (exact count wins over deltas;
+    throughput derived from it). `tsc` + `lint` clean; 131 tests green;
+    `next build` succeeds.
+- Optional (remaining): none tracked — the roadmap's Graph-RAG and profiler
+  follow-ups are complete. Remaining ideas are incremental (CI Node 22 bump +
+  cross-platform lockfile; pinned model `revision`; a `structuralWeight` slider /
+  embedding prewarm demo polish).
 - Tooling: optional type-aware ESLint (typescript-eslint `projectService`) for
   deeper rules; the current config is non-type-checked for speed.
 

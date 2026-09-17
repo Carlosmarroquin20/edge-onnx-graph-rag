@@ -64,6 +64,27 @@ describe("profileGeneration", () => {
     expect(metrics.backend).toBe("wasm");
   });
 
+  it("prefers the backend's exact token count over the emitted-delta count", async () => {
+    async function* stream(): AsyncIterable<GenerationToken> {
+      yield { text: "a", index: 0, isLast: false };
+      // Two deltas emitted, but the terminal delta reports 5 exact tokens (e.g.
+      // buffered multi-token code points plus a text-free EOS step).
+      yield { text: "bc", index: 1, isLast: true, generatedTokenCount: 5 };
+    }
+    const run = profileGeneration(stream(), {
+      ...options(),
+      clock: scriptedClock([0, 10, 60]),
+    });
+
+    for await (const _token of run.tokens) {
+      // drain
+    }
+    const metrics = await run.metrics;
+
+    expect(metrics.generatedTokenCount).toBe(5); // exact, not the 2 emitted deltas
+    expect(metrics.tokensPerSecond).toBeCloseTo(100); // 5 / 0.05s decode phase
+  });
+
   it("records the sampled peak memory", async () => {
     const run = profileGeneration(tokenStream(1), {
       ...options(),
