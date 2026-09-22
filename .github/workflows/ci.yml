@@ -18,16 +18,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
-        # The committed lockfile is generated on Windows and omits this runner's
-        # platform-native optional deps (Rollup's binaries). `npm ci` treats them
-        # as optional and exits 0 without them, so vitest later fails to load
-        # `@rollup/rollup-linux-x64-gnu` at runtime (npm/cli#4828). Resolve fresh
-        # against package.json so the correct platform binary installs here.
-        run: rm -f package-lock.json && npm install --no-audit --no-fund
+        # The committed lockfile is cross-platform (it records every platform's
+        # native optional deps — Rollup/esbuild binaries — regenerated with npm
+        # 11), so `npm ci` installs this runner's Linux binaries reproducibly.
+        run: npm ci --no-audit --no-fund
 
       - name: Type-check (strict)
         run: npm run typecheck

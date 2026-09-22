@@ -475,10 +475,20 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     reads fewer). `profileGeneration.test.ts` +1 (exact count wins over deltas;
     throughput derived from it). `tsc` + `lint` clean; 131 tests green;
     `next build` succeeds.
-- Optional (remaining): none tracked — the roadmap's Graph-RAG and profiler
-  follow-ups are complete. Remaining ideas are incremental (CI Node 22 bump +
-  cross-platform lockfile; pinned model `revision`; a `structuralWeight` slider /
-  embedding prewarm demo polish).
+- CI hardening — cross-platform lockfile + Node 22 (closes the PR #1 follow-ups):
+  - Root cause of the earlier `npm ci` failure: npm 10.5 records only the
+    generating platform's native optional deps, so the Windows-authored lockfile
+    listed `@rollup/rollup-win32-*` / `@esbuild/win32-x64` but not the Linux
+    binaries (npm/cli#4828). Regenerating with **npm 11**
+    (`npx npm@11 install --package-lock-only`) records every platform's optional
+    binaries. Diff was clean: +69 platform package nodes, **0 version changes, 0
+    removals** — declared deps untouched. `npm ci --dry-run` in sync (374 pkgs).
+  - CI (`ci.yml`): install step reverted from the `rm -f lockfile && npm install`
+    workaround back to `npm ci` (reproducible), and the runner bumped Node 20 → 22.
+  - Local `npm install` on npm < 11 will re-prune the cross-platform entries, so
+    regenerate the lockfile with npm 11 when it needs updating.
+- Optional (remaining): incremental only — pinned model `revision`; a
+  `structuralWeight` slider / embedding prewarm demo polish.
 - Tooling: optional type-aware ESLint (typescript-eslint `projectService`) for
   deeper rules; the current config is non-type-checked for speed.
 
