@@ -487,8 +487,28 @@ Single test file: `npm run test -- src/core/engine/capabilities.test.ts`
     workaround back to `npm ci` (reproducible), and the runner bumped Node 20 → 22.
   - Local `npm install` on npm < 11 will re-prune the cross-platform entries, so
     regenerate the lockfile with npm 11 when it needs updating.
+  - Gotcha: `npm ci --dry-run` on npm 10.5 still deletes `node_modules` before
+    planning. Restore with `npm ci` (reads the lockfile, never rewrites it).
+- Portfolio presentation (README screenshots + free deploy readiness):
+  - `docs/screenshots/overview.png` (full console after a turn) and
+    `retrieval.png` (subgraph + execution profile), captured from the production
+    build (`next start`) by driving Edge with `playwright-core` (installed in the
+    session scratchpad, not a repo dependency). Headed WebGPU under automation lost
+    its device (`mapAsync … Instance reference no longer exists`), so the capture
+    ran headless on the WASM backend (TTFT 4.1 s, 2.2 tok/s, 111 gen tokens). Edge
+    exposed `measureUserAgentSpecificMemory`, so peak memory was measured
+    (1937.5 MB) — the first non-`n/a` reading.
+  - README brought current: hybrid-retrieval highlight, exact token count, updated
+    architecture diagram, 131 tests, CI on Node 22 + cross-platform lockfile, and a
+    "Deploying (free)" section.
+  - Vercel readiness verified: `next start` serves COOP `same-origin` + COEP
+    `credentialless` from `next.config.mjs` `headers()`; no env vars are read by
+    the code; the Linux production build already passes in CI. Deploy is a zero-
+    config import on the free Hobby plan (done by the repo owner from their
+    account).
 - Optional (remaining): incremental only — pinned model `revision`; a
-  `structuralWeight` slider / embedding prewarm demo polish.
+  `structuralWeight` slider / embedding prewarm demo polish; add the live demo URL
+  to the README once deployed.
 - Tooling: optional type-aware ESLint (typescript-eslint `projectService`) for
   deeper rules; the current config is non-type-checked for speed.
 
